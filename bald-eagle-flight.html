@@ -1617,8 +1617,10 @@ function updateFox(dt, now) {
   tail.rotation.z = Math.sin(now * 6) * 0.15 * foxState.stride;
 }
 
-// A great horned owl gliding a slow circle among the trees after dark
-const OWL_ROUTE = { x: -30, z: -58, radius: 22, height: 7 };
+// A great horned owl gliding a slow loop along the treeline behind the lake after dark. Its near side
+// skims the far shore, just behind the snag. Most nights it roams off to hunt wherever the eagle is flying,
+// carrying its loop with it, so the two meet and the eagle gives chase.
+const OWL_ROUTE = { x: 2, z: -44, rx: 18, rz: 11, height: 7 };
 function makeOwl() {
   const owl = new THREE.Group();
   const plumage = new THREE.MeshStandardMaterial({ color: 0x6e5c48, flatShading: true, roughness: 0.9, side: THREE.DoubleSide });
@@ -1659,16 +1661,33 @@ castShadows(owl);
 scene.add(owl);
 const OWL_GLIDE_RATE = 0.18; // radians of its circle per second
 const OWL_FLEE_RATE = 0.42;
-const owlState = { around: 0, rate: OWL_GLIDE_RATE, wingbeat: 0 };
+const OWL_ROAM_CHANCE = 0.75; // share of nights it goes looking for the eagle
+const OWL_ROAM_SPEED = 6;     // how fast its loop drifts across the landscape
+const OWL_CAMERA_CLEARANCE = { x: HOME_POSITION.x, z: HOME_POSITION.z, radius: 22 }; // keep its loop's centre clear of the starting camera
+const owlState = { around: 0, rate: OWL_GLIDE_RATE, wingbeat: 0, roaming: false, centre: new THREE.Vector3(OWL_ROUTE.x, 0, OWL_ROUTE.z) };
 function owlRoutePoint(around, out) {
-  return out.set(OWL_ROUTE.x + Math.cos(around) * OWL_ROUTE.radius, groundY + OWL_ROUTE.height, OWL_ROUTE.z + Math.sin(around) * OWL_ROUTE.radius * 0.7);
+  return out.set(owlState.centre.x + Math.cos(around) * OWL_ROUTE.rx, groundY + OWL_ROUTE.height, owlState.centre.z + Math.sin(around) * OWL_ROUTE.rz);
 }
 const owlLast = new THREE.Vector3();
+const owlTarget = new THREE.Vector3();
 function updateOwl(dt, now) {
-  owl.visible = sunHeight < -0.08;
+  const out = sunHeight < -0.08;
+  if (out && !owl.visible) {
+    // Each dusk it leaves the treeline, and most nights it sets off towards the eagle
+    owlState.roaming = Math.random() < OWL_ROAM_CHANCE;
+    owlState.centre.set(OWL_ROUTE.x, 0, OWL_ROUTE.z);
+  }
+  owl.visible = out;
   if (!owl.visible) return;
-  // Speeds up, beating hard, while the eagle is chasing it
+  // Speeds up, beating hard, while the eagle is chasing it, then heads home
   const fleeing = eagle.mode === "chase";
+  if (fleeing) owlState.roaming = false;
+  // Carry the loop towards the eagle's path while roaming, otherwise back to the treeline
+  if (owlState.roaming) owlTarget.set(cruise.x, 0, cruise.z);
+  else owlTarget.set(OWL_ROUTE.x, 0, OWL_ROUTE.z);
+  const gap = owlTarget.sub(owlState.centre).length();
+  if (gap > 1e-3) owlState.centre.addScaledVector(owlTarget, Math.min(OWL_ROAM_SPEED * dt, gap) / gap);
+  keepOutOfCircle(owlState.centre, OWL_CAMERA_CLEARANCE);
   owlState.rate += ((fleeing ? OWL_FLEE_RATE : OWL_GLIDE_RATE) - owlState.rate) * easeFactor(dt, 1.5);
   owlState.around += owlState.rate * dt;
   owlLast.copy(owl.position);

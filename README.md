@@ -29,7 +29,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 - Flies with slow, deep wingbeats between long glides and banks into its turns.
 - **Fishing:** it picks out one of the fish visible under the surface and dives on it. It skims the water with its talons forward, snatches the fish with a splash and carries it to a dead tree on the far-left shore. It eats there, dipping its head, then takes off again.
 - **Storms:** it waits out thunderstorms perched on the dead tree.
-- **Neighbours:** at night it swoops low over the fox twice and chases the owl round its circle. The deer bolt when it comes in low near them.
+- **Neighbours:** at night it swoops low over the fox twice, and when its flight brings it near the owl it chases it round its loop. The deer bolt when it comes in low near them.
 
 ### Wildlife
 
@@ -38,7 +38,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 - **Fish:** dark shapes cruise just under the surface, and now and then one leaps clear of the water.
 - **Great blue heron:** wades the near-left shallows, freezes, then stabs at the water. It sometimes comes up with a fish and swallows it.
 - **Red fox:** trots a loop behind the deer meadow from dusk to dawn, stopping to sniff. It bolts when the eagle buzzes it.
-- **Great horned owl:** glides a slow circle among the trees after dark.
+- **Great horned owl:** glides a slow loop along the treeline behind the lake after dark.
 - **Bats:** flit low over the lake from dusk into the early night.
 - **Distant birds:** small flocks in V formation cross the sky.
 
