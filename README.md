@@ -2,6 +2,8 @@
 
 An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over a lake. The day loops continuously, with weather, wildlife and a lakeside campsite. Everything lives in a single file, `bald-eagle-flight.html`, built with [three.js](https://threejs.org/) r128.
 
+![The eagle gliding over the misty lake at dawn, with ducks, a heron and the campsite tent on the far shore](docs/screenshot.png)
+
 ## Running it
 
 Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs and its fonts from Google Fonts, so it needs an internet connection.
