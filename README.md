@@ -71,8 +71,8 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 A man and a woman are camping on the right-hand shore. Their camp has an orange ridge tent, two folding chairs and a stone fire pit.
 
 - **By day:** they sit in their chairs or wander around the tent and fire pit. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views.
-- **Fishing:** around the middle of the day he sometimes takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back, then casts again.
-- **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings (but not when the floatplane's due) they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
+- **Fishing:** on dry mornings he's up at first light, before sunrise and before she is, and takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back.
+- **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings (but not when the floatplane's due) they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. On his fishing mornings they wait till he's finished. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
 
 ### The floatplane

@@ -134,7 +134,7 @@ h1 {
 @media (hover: none) { .dock kbd { display: none; } }
 </style>
 
-<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
+<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
 
 <div class="card">
   <p class="eyebrow">American bald eagle · <i>Haliaeetus leucocephalus</i></p>
@@ -4460,7 +4460,7 @@ const FIRE_PIT = { x: 21.5, z: -28.5, radius: 0.9 };
 const TENT = { x: 25.3, z: -31.2, radius: 1.5, width: 1.9, height: 1.3, length: 2.3 };
 const LAMP_COLOR = new THREE.Color(0xffa04a);
 // The page opens before sunrise, with the campers still in the tent
-const camp = { fire: 1, lamp: 1, smoke: 1, fishTimer: 10, lanternDay: -1, eveningDay: -1 };
+const camp = { fire: 1, lamp: 1, smoke: 1, fishDay: -1, lanternDay: -1, eveningDay: -1 };
 
 // Warm light pooled on the ground (the ground's lighting is per-vertex, so lights can't show on it)
 function groundGlow(x, z, size, color) {
@@ -4702,9 +4702,10 @@ const campers = CAMPERS.map(outfit => {
 
 // On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
 // slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
-// cloud over they turn for home before the rain comes. They still stop to point at the eagle.
-const CANOE_HOURS = { from: 6.5, to: 9 };   // when they set out
-const CANOE_HOME_HOUR = 14;                 // and when they head back in, if they haven't already
+// cloud over they turn for home before the rain comes. They still stop to point at the eagle. On his
+// fishing mornings they wait till he's done.
+const CANOE_HOURS = { from: 6.5, to: 11 };  // when they set out
+const CANOE_HOME_HOUR = 16;                 // and when they head back in, if they haven't already
 const CANOE_SPEED = 1.4;
 const CANOE_SEATS = [new THREE.Vector3(0, 0.1, -1.45), new THREE.Vector3(0, 0.1, 1.2)]; // his in the stern, hers in the bow
 const CANOE_THIGH = -1.55;
@@ -4796,7 +4797,7 @@ function updateCanoe(dt, now, night) {
   if (t.mode === "beached") {
     // Not on the floatplane's days, when the lake will be busy
     const fine = weather.phase === "clear" && weather.timer > 40 && planeState.mode === "away" && !planeDue();
-    const free = states.every(state => state !== "inTent" && state !== "toTent");
+    const free = states.every(state => !["inTent", "toTent", "toFish", "fishing"].includes(state));
     if (t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free) {
       t.mode = "boarding";
       for (const camper of campers) setCamperState(camper, "toCanoe");
@@ -4897,9 +4898,10 @@ campers.forEach((camper, i) => {
   camper.rotation.order = "YXZ";
 });
 
-// By day he sometimes fishes from the shore below the camp: he casts out, waits for a bite, reels
-// in and holds up his catch, then lets it go and casts again
-const FISHING_HOURS = { from: 9.5, to: 16.5 };
+// On dry mornings he's up at first light, before she is, and walks down to fish from the shore below
+// the camp: he casts out, waits for a bite, reels in and holds up his catch, then lets it go and heads
+// back, in time for the canoe
+const FISHING_HOURS = { from: 5.3, to: 7 }; // when he sets out
 const FISHING_SPOT = lakePoint(1.9 * Math.PI, 1.06).setY(groundY);
 const FISHING_FACING = bearing(FISHING_SPOT, LAKE);
 const BOBBER_SPOT = FISHING_SPOT.clone().addScaledVector(yawVector(FISHING_FACING), 7).setY(LAKE.y + 0.02);
@@ -4943,7 +4945,7 @@ function updateFishing(dt, now) {
     f.phase = "none";
     return;
   }
-  if (f.phase === "none") Object.assign(f, { phase: "cast", time: 0, casts: 2 + Math.floor(Math.random() * 2) });
+  if (f.phase === "none") Object.assign(f, { phase: "cast", time: 0, casts: 1 }); // just the one, before the canoe
   f.time += dt;
   rod.updateWorldMatrix(true, false);
   rod.localToWorld(rodTip.copy(ROD_TIP));
@@ -4961,7 +4963,7 @@ function updateFishing(dt, now) {
     f.slack = 0.05;
     if (p >= 1) {
       splash(BOBBER_SPOT, 0.04);
-      setFishing("wait", 5 + Math.random() * 8);
+      setFishing("wait", 3 + Math.random() * 3);
     }
   } else if (f.phase === "wait") {
     bobber.position.copy(BOBBER_SPOT).y += Math.sin(now * 2.2) * 0.01;
@@ -5094,15 +5096,18 @@ const lookLocal = new THREE.Vector3();
 const armAim = new THREE.Quaternion();
 const armSwing = new THREE.Euler();
 const ARM_DOWN = new THREE.Vector3(0, -1, 0);
+function leaveTent(camper) {
+  camper.visible = true;
+  camper.position.copy(TENT_DOOR);
+  camper.rotation.y = tent.rotation.y;
+}
 function updateCamper(camper, dt, now, indoors) {
   const c = camper.userData;
   if (c.state === "inTent") {
     if (indoors) return;
     c.timer -= dt;
     if (c.timer > 0) return;
-    camper.visible = true;
-    camper.position.copy(TENT_DOOR);
-    camper.rotation.y = tent.rotation.y;
+    leaveTent(camper);
     setCamperState(camper, "walk");
   }
   // Out on the water they paddle back in first; the trip lands them
@@ -5225,10 +5230,12 @@ function updateCamp(dt, now) {
   const inside = campers.some(camper => camper.userData.state === "inTent");
   camp.lamp += ((inside && (night || hour >= FIRE_HOUR) ? 1 : 0) - camp.lamp) * easeFactor(dt, 3);
   const scared = bearNearCamp();
-  for (const camper of campers) updateCamper(camper, dt, now, night || weather.rain > CAMPER_SHELTER_RAIN || scared);
+  // (He's out before sunrise on his fishing mornings)
+  const dawnFishing = camper => hour < SUNRISE && ["toFish", "fishing"].includes(camper.userData.state);
+  for (const camper of campers) updateCamper(camper, dt, now, (night && !dawnFishing(camper)) || weather.rain > CAMPER_SHELTER_RAIN || scared);
   updateFishing(dt, now);
-  // The day's outings: fishing in the middle of the day, her lantern walk to the water at dusk, and
-  // lying out to watch the northern lights
+  // The day's outings: fishing at first light, her lantern walk to the water at dusk, and lying out
+  // to watch the northern lights
   const [him, her] = campers;
   const free = camper => ["stand", "walk", "sit", "toChair"].includes(camper.userData.state);
   const dry = weather.phase === "clear" && weather.rain < 0.05;
@@ -5237,11 +5244,11 @@ function updateCamp(dt, now) {
     camp.eveningDay = day;
     for (const camper of campers) if (["stand", "walk"].includes(camper.userData.state)) setCamperState(camper, "toChair");
   }
-  camp.fishTimer -= dt;
-  if (camp.fishTimer <= 0) {
-    camp.fishTimer = 20 + Math.random() * 20;
-    const fishingTime = hour >= FISHING_HOURS.from && hour < FISHING_HOURS.to && canoeTrip.mode === "beached";
-    if (fishingTime && dry && free(him) && Math.random() < 0.6) setCamperState(him, "toFish");
+  const asleep = him.userData.state === "inTent";
+  if (camp.fishDay !== day && hour >= FISHING_HOURS.from && hour < FISHING_HOURS.to && canoeTrip.mode === "beached" && dry && !scared && (asleep || free(him))) {
+    camp.fishDay = day;
+    if (asleep) leaveTent(him);
+    setCamperState(him, "toFish");
   }
   // (On northern-lights nights they're too busy getting ready to lie out and watch)
   if (camp.lanternDay !== day && !auroraTonight && hour >= LANTERN_HOUR && hour < CAMP_BEDTIME - 0.3 && free(her) && dry && !scared) {
