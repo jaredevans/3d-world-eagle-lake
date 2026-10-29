@@ -364,6 +364,20 @@ function nearStream(x, z, margin) {
 const nearFalls = (x, z, margin) => Math.hypot(x - FALLS.x, z - (FALLS.z + 3)) < 6 + margin;
 // The beavers' lodge, a mound of sticks and mud in the shallows beside the stream mouth
 const LODGE = { x: -9.6, z: -27.2, radius: 1.6, height: 1.3 };
+// Where the campers' canoe rests, pulled up at the water's edge below the camp, and its route round the
+// lake: round the open water east of the middle, clear of the heron, the moose and the lake-skimming
+// stretch of Look around. The last point is where they line up to come in.
+const CANOE_BEACH_ANGLE = 1.82 * Math.PI;
+const CANOE_BEACH = new THREE.Vector3(LAKE.x + Math.cos(CANOE_BEACH_ANGLE) * LAKE.rx * 0.97, LAKE.y, LAKE.z + Math.sin(CANOE_BEACH_ANGLE) * LAKE.rz * 0.97);
+const CANOE_ROUTE = [[12.5, -27.2], [6.5, -25.5], [4.5, -20], [8, -15], [14, -15.5], [18, -21.5]].map(([x, z]) => new THREE.Vector3(x, LAKE.y, z));
+// The reeds are kept off its resting spot, with room beside it to climb in
+const CANOE_REST_AXIS = new THREE.Vector3().subVectors(CANOE_BEACH, CANOE_ROUTE[CANOE_ROUTE.length - 1]).setY(0).normalize();
+function onCanoeRest(x, z, margin) {
+  const dx = x - CANOE_BEACH.x;
+  const dz = z - CANOE_BEACH.z;
+  const along = clamp(dx * CANOE_REST_AXIS.x + dz * CANOE_REST_AXIS.z, -2.5, 2.5);
+  return Math.hypot(dx - CANOE_REST_AXIS.x * along, dz - CANOE_REST_AXIS.z * along) < 0.5 + margin;
+}
 
 // Lake reflections: each frame a mirror camera below the surface renders the scene into a texture
 const mirrorTarget = new THREE.WebGLRenderTarget(512, 512);
@@ -1030,7 +1044,7 @@ const shorePlace = () => {
     const reach = 0.92 + Math.random() * 0.14;
     x = LAKE.x + Math.cos(angle) * LAKE.rx * reach;
     z = LAKE.z + Math.sin(angle) * LAKE.rz * reach;
-  } while (nearStream(x, z, 0.3) || Math.hypot(x - LODGE.x, z - LODGE.z) < LODGE.radius + 0.3);
+  } while (nearStream(x, z, 0.3) || Math.hypot(x - LODGE.x, z - LODGE.z) < LODGE.radius + 0.3 || onCanoeRest(x, z, 1));
   return [x, z];
 };
 scatterPlants(reedGeometry(), true, 500, [0x6b4a2a, 0x5a3c22], shorePlace, 0.8, 1.3);
@@ -4689,11 +4703,6 @@ const campers = CAMPERS.map(outfit => {
 // On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
 // slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
 // cloud over they turn for home before the rain comes. They still stop to point at the eagle.
-const CANOE_BEACH_ANGLE = 1.82 * Math.PI;
-const CANOE_BEACH = new THREE.Vector3(LAKE.x + Math.cos(CANOE_BEACH_ANGLE) * LAKE.rx * 0.97, LAKE.y, LAKE.z + Math.sin(CANOE_BEACH_ANGLE) * LAKE.rz * 0.97);
-// Round the open water east of the middle, clear of the heron, the moose and the lake-skimming
-// stretch of Look around; the last point is where they line up to come in
-const CANOE_ROUTE = [[12.5, -27.2], [6.5, -25.5], [4.5, -20], [8, -15], [14, -15.5], [18, -21.5]].map(([x, z]) => new THREE.Vector3(x, LAKE.y, z));
 const CANOE_HOURS = { from: 6.5, to: 9 };   // when they set out
 const CANOE_HOME_HOUR = 14;                 // and when they head back in, if they haven't already
 const CANOE_SPEED = 1.4;
@@ -5576,18 +5585,30 @@ function updateRaccoon(dt, now) {
   tail.rotation.z = Math.sin(now * 2.5) * 0.15;
 }
 
-// A black bear that comes out of the trees on the right in the evening to feed on the berry bushes
-// behind the camp, sometimes rearing up on its hind legs to reach. On some evenings without the
-// northern lights (so it doesn't spoil the campers' night under them) it wanders on into the camp
-// while they're by the fire, and they hurry into the tent until it has nosed round the blanket,
-// the chairs and the fire pit and ambled off.
-const BEAR_HOURS = { out: 15.3, home: 21.5 };
+// A black bear. Every morning it comes out of the trees beyond the meadow and wades into the middle of
+// the stream to fish through the day: it stares into the water, swipes a paw down at a fish with a
+// splash or rears up and pounces on it with both paws, and now and then comes up with one and eats it.
+// Most days it fishes on until dusk, then heads back into the trees. On some days without the northern
+// lights (so it doesn't spoil the campers' night under them) it leaves the stream after lunch instead
+// and crosses the meadow to the berry bushes behind the camp, feeds there, sometimes rearing up on its
+// hind legs to reach, then wanders on into the camp while the campers are by the fire. They hurry into
+// the tent until it has nosed round the blanket, the chairs and the fire pit and ambled off into the
+// trees on the right. (The plan for the evening is settled at noon.)
+const BEAR_HOURS = { out: 8, home: 18.8, campHome: 21.5 };
+const BEAR_LEAVE_STREAM_HOUR = 14; // for the berries, on the evenings it visits the camp
+const BEAR_TREK_SPEED = 2.4;       // its brisk walk across the meadow from the stream to the berries
 const BEAR_CAMP_HOUR = 18.6;  // when it leaves the berries for the camp, on the evenings it visits
 const BEAR_CAMP_CHANCE = 0.5;
 const BEAR_WALK_SPEED = 1.6;
 const BEAR_FOREST = new THREE.Vector3(48, groundY, -50);
 const BERRY_PATCH = { x: 32, z: -42, radius: 2.5 };
 const BEAR_SCARE_RADIUS = 9; // how close to the camp it comes before the campers take cover
+// Its fishing spot in the middle of the stream, and the trees it comes from
+const BEAR_STREAM_T = 0.5;
+const BEAR_STREAM_WOODS = new THREE.Vector3(-18, groundY, -74);
+const BEAR_WADE_DEPTH = 0.15;
+const BEAR_SWIPE_SECONDS = 0.9;
+const BEAR_POUNCE_SECONDS = 1.3;
 const bushRand = mulberry32(41); // its own seed, so the rest of the scenery is untouched
 const bushLeaves = new THREE.MeshLambertMaterial({ color: 0x3e6232 });
 const berryMats = [0x5a2a5e, 0x8a2030].map(color => new THREE.MeshLambertMaterial({ color }));
@@ -5659,14 +5680,21 @@ function makeBear() {
   const tail = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 4), fur);
   tail.position.set(0, 0.72, -0.8);
   bear.add(tail);
-  Object.assign(bear.userData, { torso, head, legs });
+  // A fish caught in the stream, held crosswise in its jaws
+  const catchFish = makeFish();
+  catchFish.scale.setScalar(1.4);
+  catchFish.rotation.y = Math.PI / 2;
+  catchFish.position.set(0, -0.08, 0.3);
+  catchFish.visible = false;
+  head.add(catchFish);
+  Object.assign(bear.userData, { torso, head, legs, catchFish });
   return bear;
 }
 const bear = makeBear();
 bear.visible = false;
 castShadows(bear);
 scene.add(bear);
-const bearState = { mode: "away", timer: 0, time: 0, route: [], then: "", heading: 0, speed: 0, stride: 0, gait: 0, rear: 0, campVisit: false, visited: false, last: -1 };
+const bearState = { mode: "away", timer: 0, time: 0, route: [], then: "", heading: 0, speed: 0, stride: 0, gait: 0, rear: 0, campVisit: false, visited: false, last: -1, home: BEAR_FOREST, phase: "watch", struck: false };
 // Where it noses about in the camp: in from the berries round the back of the tent, past the blanket
 // and the chairs to the fire pit, then out again past the front of the camp. It pushes past the
 // chairs but goes round the fire and the tent.
@@ -5686,7 +5714,11 @@ function bearToBush() {
   bearState.reach = Math.random() < 0.4;
   bearWalk([bushBeside], "feed");
 }
-const bearOut = () => hour >= BEAR_HOURS.out && hour < BEAR_HOURS.home;
+const bearOut = () => hour >= BEAR_HOURS.out && hour < (bearState.campVisit ? BEAR_HOURS.campHome : BEAR_HOURS.home);
+// A spot in the stream a pace or two up or down from its fishing spot, to try its luck there
+function bearFishingSpot(out) {
+  return streamCurve.getPointAt(BEAR_STREAM_T + (Math.random() - 0.5) * 0.05, out).setY(groundY);
+}
 // The campers take cover while it's in or close to the camp
 const bearNearCamp = () => bear.visible && Math.hypot(bear.position.x - CAMP.x, bear.position.z - CAMP.z) < BEAR_SCARE_RADIUS;
 function updateBear(dt, now) {
@@ -5697,17 +5729,26 @@ function updateBear(dt, now) {
     bear.visible = false;
     if (bearOut() && b.last !== day) {
       b.last = day;
-      b.campVisit = !auroraTonight && Math.random() < BEAR_CAMP_CHANCE;
       b.visited = false;
       bear.visible = true;
-      bear.position.copy(BEAR_FOREST);
-      bearToBush();
+      // Out of the trees beyond the meadow, to fish the stream
+      b.home = BEAR_STREAM_WOODS;
+      bear.position.copy(b.home);
+      bearWalk([bearFishingSpot(new THREE.Vector3())], "fish");
     }
     return;
   }
   // Time to go: off home through the trees, or into the camp on the evenings it visits
-  const leaving = b.mode !== "walk" || b.then === "feed";
-  if (leaving && !bearOut()) bearWalk([BEAR_FOREST], "away");
+  const leaving = b.mode !== "walk" || b.then === "feed" || b.then === "fish";
+  if (leaving && !bearOut()) {
+    bear.userData.catchFish.visible = false;
+    bearWalk([b.home], "away");
+  } else if (b.mode === "fish" && b.phase !== "eat" && b.campVisit && hour >= BEAR_LEAVE_STREAM_HOUR) {
+    // Off across the meadow to the berries, and on to the camp later; home through the trees on the right
+    b.home = BEAR_FOREST;
+    b.trek = true;
+    bearToBush();
+  }
   else if (leaving && b.campVisit && !b.visited && hour >= BEAR_CAMP_HOUR) {
     b.visited = true;
     bearWalk([BEAR_CAMP_WAY_IN, BEAR_SNIFFS[0]], "sniff");
@@ -5727,14 +5768,42 @@ function updateBear(dt, now) {
           b.mode = "away";
           return;
         }
-        Object.assign(b, { mode: b.then, time: 0, timer: b.then === "feed" ? 5 + Math.random() * 5 : 2 + Math.random() });
+        Object.assign(b, { mode: b.then, time: 0, timer: b.then === "feed" ? 5 + Math.random() * 5 : 2 + Math.random(), phase: "watch" });
       }
     }
   } else if (b.mode === "feed") {
+    b.trek = false;
     b.heading = bearing(bear.position, b.bush.position);
     // Reaching up into the bush for the higher berries, now and then
     rearing = b.reach && b.time > 1.5 && b.time < 4.5 ? 1 : 0;
     if (b.timer <= 0) bearToBush();
+  } else if (b.mode === "fish") {
+    // Standing in the stream facing down towards the lake: watching the water, then a swipe or a pounce
+    b.heading = bearing(bear.position, LAKE);
+    const { catchFish } = bear.userData;
+    if (b.phase === "watch" && b.timer <= 0) {
+      Object.assign(b, { phase: Math.random() < 0.3 ? "pounce" : "swipe", time: 0, struck: false });
+    } else if (b.phase === "swipe" || b.phase === "pounce") {
+      const seconds = b.phase === "swipe" ? BEAR_SWIPE_SECONDS : BEAR_POUNCE_SECONDS;
+      const strikeAt = b.phase === "swipe" ? 0.5 : 0.8;
+      if (b.phase === "pounce") rearing = b.time < 0.6 ? 0.55 : 0;
+      if (!b.struck && b.time >= strikeAt) {
+        // Down into the water with a splash, and sometimes up with a fish
+        b.struck = true;
+        splash(head.getWorldPosition(dripFrom), b.phase === "pounce" ? 0.6 : 0.35);
+        catchFish.visible = Math.random() < (b.phase === "pounce" ? 0.35 : 0.25);
+      }
+      if (b.time >= seconds) {
+        if (catchFish.visible) Object.assign(b, { phase: "eat", timer: 3 + Math.random() * 1.5 });
+        else Object.assign(b, { phase: "watch", timer: 2 + Math.random() * 3 });
+      }
+    } else if (b.phase === "eat" && b.timer <= 0) {
+      catchFish.visible = false;
+      // Try a little further along, now and then
+      if (Math.random() < 0.35) bearWalk([bearFishingSpot(new THREE.Vector3())], "fish");
+      else Object.assign(b, { phase: "watch", timer: 2 + Math.random() * 3 });
+    }
+    if (catchFish.visible) catchFish.rotation.z = Math.sin(now * 16) * 0.3;
   } else if (b.mode === "sniff") {
     // Nose to the ground round the camp, then away home
     if (b.timer <= 0) {
@@ -5745,9 +5814,9 @@ function updateBear(dt, now) {
   const walking = b.mode === "walk";
   // Slowing as it comes up to where it's going, so it doesn't circle round it
   const arriving = walking && b.route.length ? clamp(flatGap(bear.position, b.route[0]) / 2, 0.3, 1) : 1;
-  b.speed += ((walking ? BEAR_WALK_SPEED * arriving : 0) - b.speed) * easeFactor(dt, 2.5);
+  b.speed += ((walking ? (b.trek ? BEAR_TREK_SPEED : BEAR_WALK_SPEED) * arriving : 0) - b.speed) * easeFactor(dt, 2.5);
   b.stride += ((walking ? 1 : 0) - b.stride) * easeFactor(dt, 3);
-  b.rear += (rearing - b.rear) * easeFactor(dt, 2);
+  b.rear += (rearing - b.rear) * easeFactor(dt, b.mode === "fish" ? 8 : 2);
   // Skirting round the fire pit and the tent rather than pushing into them
   b.heading = skirt(bear.position, b.heading, BEAR_OBSTACLES);
   bear.rotation.y += turnTowards(bear.rotation.y, b.heading) * easeFactor(dt, 2.5);
@@ -5757,10 +5826,19 @@ function updateBear(dt, now) {
   // A rolling, pigeon-toed amble
   b.gait += dt * b.speed * 3.2;
   for (const { pivot, phase } of legs) pivot.rotation.x = Math.sin(b.gait + phase) * 0.45 * b.stride + (pivot.parent === torso ? b.rear * 1.1 : 0);
-  torso.rotation.x = -1.15 * b.rear;
-  bear.position.y = groundY + Math.abs(Math.sin(b.gait)) * 0.03 * b.stride;
-  // Head swinging low as it walks, down in the bush or at the ground when feeding and sniffing
-  const nose = b.mode === "feed" ? 0.35 + Math.sin(now * 5) * 0.1 : b.mode === "sniff" ? 0.6 + Math.sin(now * 7) * 0.08 : 0.2;
+  // A swipe: the right forepaw raised and brought down hard into the water
+  if (b.mode === "fish" && b.phase === "swipe") {
+    const t = b.time;
+    legs[0].pivot.rotation.x = t < 0.4 ? -1.4 * smoothstep(t, 0, 0.4) : t < 0.52 ? lerp(-1.4, 0.35, (t - 0.4) / 0.12) : lerp(0.35, 0, smoothstep(t, 0.52, 0.9));
+  }
+  torso.rotation.x = -1.15 * b.rear + (b.mode === "fish" && b.phase !== "eat" ? 0.12 : 0);
+  // Wading up to its ankles in the stream
+  const wading = nearStream(bear.position.x, bear.position.z, -0.3) ? BEAR_WADE_DEPTH : 0;
+  bear.position.y = groundY - wading + Math.abs(Math.sin(b.gait)) * 0.03 * b.stride;
+  // Head swinging low as it walks, down in the bush or at the ground when feeding and sniffing, peering
+  // into the water when fishing, and up to chew a catch
+  const fishing = b.mode === "fish" ? (b.phase === "eat" ? -0.15 + Math.max(Math.sin(now * 7), 0) * 0.15 : 0.75 + Math.sin(now * 0.8) * 0.05) : null;
+  const nose = fishing !== null ? fishing : b.mode === "feed" ? 0.35 + Math.sin(now * 5) * 0.1 : b.mode === "sniff" ? 0.6 + Math.sin(now * 7) * 0.08 : 0.2;
   head.rotation.x += (nose - b.rear * 0.6 - head.rotation.x) * easeFactor(dt, 3);
   head.rotation.y = b.mode === "sniff" ? Math.sin(now * 1.3) * 0.5 : Math.sin(now * 0.7) * 0.15 * b.stride;
 }
@@ -7349,6 +7427,8 @@ function frame() {
     auroraTonight = day === 1 || Math.random() < AURORA_CHANCE;
     showerTonight = Math.random() < METEOR_SHOWER_CHANCE;
     raccoonState.tonight = Math.random() < RACCOON_CHANCE;
+    // The bear's evening: fishing the stream, or the berries and the camp
+    bearState.campVisit = !auroraTonight && Math.random() < BEAR_CAMP_CHANCE;
     // The floatplane, some afternoons (always the first)
     planeState.hour = lerp(PLANE_HOURS.from, 13, Math.random());
     wolves.tonight = Math.random() < WOLF_CHANCE;
