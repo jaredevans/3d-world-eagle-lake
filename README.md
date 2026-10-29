@@ -2,6 +2,8 @@
 
 An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over a lake. The day loops continuously, with weather, wildlife and a lakeside campsite. Everything lives in a single file, `bald-eagle-flight.html`, built with [three.js](https://threejs.org/) r128.
 
+**[Try it live in your browser](https://jaredevans.github.io/3d-world-eagle-lake/)**
+
 ![The eagle skimming low over the misty lake in the early morning in front of the waterfall and its stream, with the nest pine, the beavers' lodge and a feeding moose on the left, ducks, an otter and a heron on the water, a dewy spider's web and the turtles' log in front, and on the right-hand shore the campers by their tent, where he's casting from the water's edge](docs/screenshot.png)
 
 ## Running it
