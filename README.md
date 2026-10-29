@@ -20,7 +20,7 @@ Open `bald-eagle-flight.html` in a modern browser, either straight from disk or 
 | `L` | Look around: leave the eagle and glide slowly round the lake |
 | `M` | Sound on or off (off by default) |
 
-In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer, turns to the snag and rounds the left end of the lake to the heron in the shallows. It glides low across the water and curls back round to the tent. Once a lap, if the fox or owl is out, the camera leaves the loop to watch it from a little way off, then glides back to where it left off. It rises above the treetops before it travels. For the fox it zooms in close; for the owl it watches the whole circling loop. The nights are short, so the two take turns to go first. The camera keeps its gaze on the deer and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, and `R` or a double-click turns it back.
+In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. Once a lap, if the fox or owl is out, the camera leaves the loop to watch it from a little way off, then glides back to where it left off. It rises above the treetops before it travels. For the fox it zooms in close; for the owl it watches the whole circling loop. The nights are short, so the two take turns to go first. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, and `R` or a double-click turns it back.
 
 The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out.
 
@@ -30,7 +30,8 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 
 - Built life size, with a wingspan of about 2.2 m. It has a dark brown body, a white head and tail, a hooked yellow beak and spread "finger" primaries.
 - Flies with slow, deep wingbeats between long glides and banks into its turns.
-- **Fishing:** it picks out one of the fish visible under the surface and dives on it. It skims the water with its talons forward, snatches the fish with a splash and carries it to a dead tree on the far-left shore. It eats there, dipping its head, then takes off again.
+- **Fishing:** it picks out one of the fish visible under the surface and dives on it. It skims the water with its talons forward, snatches the fish with a splash and carries it either to a dead tree on the far-left shore, where it eats it, or home to its nest to feed the eaglets. Either way it dips its head to tear at the fish, then takes off again.
+- **The nest:** a big platform of sticks in the top of a tall pine behind the far-left shore. The eagle's mate, a little larger, stands guard on the rim with its wings folded, scanning the valley. Two downy grey eaglets sit in the cup. When a parent comes in with food they crane up with their beaks open, begging, and the mate calls the eagle in. The eaglets doze at night.
 - **Storms:** it waits out thunderstorms perched on the dead tree.
 - **Neighbours:** at night it swoops low over the fox twice, and when its flight brings it near the owl it chases it round its loop. The deer bolt when it comes in low near them.
 
@@ -38,6 +39,10 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 
 - **Deer:** a herd of four, one of them a buck with antlers. They graze, look around, amble about and walk down to the lake to drink. They keep a wary eye on the fox.
 - **Mallards:** three ducks paddling about the lake, each trailing a faint wake. The lily pads bob as they pass.
+- **Common loon:** rides low on the open water with its chick on its back. It dives for fish, leaving the chick bobbing on the surface, and comes up somewhere else, sometimes with a fish. Then it swims back and the chick climbs aboard again. Once a day, in the late morning, it swims to the left end of the lake and makes its long, pattering, splashing run to take off. It circles out over the trees on both sides of the valley and comes back in on a long skidding landing. If the eagle comes in low nearby, it gives its tremolo and dives with the chick.
+- **Moose:** a bull with broad, flat antlers walks out of the trees on the left before dawn and wades into the shallows among the lily pads. He dunks his whole head under to feed, hauls it up with water streaming off his muzzle, and stands chewing and looking about before the next dunk. By mid morning he wades out and goes back into the trees.
+- **Frogs:** green frogs sit on some of the lily pads and bob with them. They croak, mostly after dark, puffing out their throats. When a duck, the loon, the heron, the moose or the canoe comes close, they leap into the water with a plop, then climb back onto their pads a while later.
+- **Dragonflies:** on fine, sunny days they hover over the lily pads and dart suddenly from spot to spot, their glassy wings a blur.
 - **Fish:** dark shapes cruise just under the surface, and now and then one leaps clear of the water.
 - **Great blue heron:** wades the near-left shallows, freezes, then stabs at the water. It sometimes comes up with a fish and swallows it.
 - **Red fox:** trots a loop behind the deer meadow from dusk to dawn, stopping to sniff. It bolts when the eagle buzzes it.
@@ -50,6 +55,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 A man and a woman are camping on the right-hand shore. Their camp has an orange ridge tent, two folding chairs and a stone fire pit.
 
 - **By day:** they sit in their chairs or wander around the tent and fire pit. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views.
+- **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
 - **Night:** from 21:00 until sunrise they're in the tent. A lamp lights it from inside and the fire burns outside, throwing sparks and a warm glow on the ground.
 
@@ -78,7 +84,9 @@ A man and a woman are camping on the right-hand shore. Their camp has an orange 
 All sound is generated in the browser with the Web Audio API; there are no audio files.
 
 - **Wind and rain:** wind blows all the time, louder in bad weather, with a rain hiss whenever it rains.
-- **Day and night:** birdsong while the sun is up and it's dry. After dark there are crickets, frogs and the owl's hoot.
+- **Day and night:** birdsong while the sun is up and it's dry. After dark there are crickets, frogs and the owl's hoot. The frogs on the lily pads croak in time with their puffing throats.
+- **The loon:** its long, rising, quavering wail at dusk and through the night (and sometimes at dawn), echoing across the lake. It gives its rapid tremolo when it's alarmed and when it takes off.
+- **The nest:** the eaglets peep while they're begging, and the mate calls when the eagle brings food in.
 - **Events:** the eagle's high chatter when it dives or gives chase, and splashes from catches, leaping fish and the heron. Thunder follows lightning after a delay that's longer for distant strikes.
 
 ## Accessibility

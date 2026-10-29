@@ -134,7 +134,7 @@ h1 {
 @media (hover: none) { .dock kbd { display: none; } }
 </style>
 
-<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree, while deer graze, a fox and a heron hunt, ducks paddle, two campers by their tent point up as the eagle passes overhead, shelter from the rain and turn in by firelight at night, bats and an owl come out at night (the eagle buzzes the fox and chases the owl) and the weather turns from sunshine to thunderstorms"></canvas>
+<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets. Deer graze, a fox and a heron hunt, ducks paddle, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, frogs sit croaking on the lily pads and dragonflies dart over them. Two campers by their tent point up as the eagle passes overhead, paddle a canoe round the lake on calm mornings, shelter from the rain and turn in by firelight at night. Bats and an owl come out at night (the eagle buzzes the fox and chases the owl) and the weather turns from sunshine to thunderstorms"></canvas>
 
 <div class="card">
   <p class="eyebrow">American bald eagle · <i>Haliaeetus leucocephalus</i></p>
@@ -483,6 +483,57 @@ scene.add(snag);
 // Where the eagle's body sits when perched on the long branch, and the way it faces (towards the viewer)
 const PERCH = new THREE.Vector3(SNAG.x + 1.0, groundY + SNAG.perchHeight + 0.3, SNAG.z);
 const perchFacing = new THREE.Vector3(HOME_POSITION.x - PERCH.x, 0, HOME_POSITION.z - PERCH.z).normalize();
+
+// The eagles' nest: a great platform of sticks in the top of a tall pine behind the far-left shore,
+// well clear of the eagle's tour and the loon's flight. The eagle's mate stands guard on the rim
+// over two downy eaglets, and some of the time the eagle brings its catch here to feed them.
+const NEST = { x: -18, z: -48, height: 10.6, radius: 1.0 }; // height of the rim above the ground
+const NEST_RIM_Y = groundY + NEST.height;
+const nestRand = mulberry32(23); // its own seed, so the rest of the scenery is untouched
+const nestTree = new THREE.Group();
+nestTree.add(new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.4, 12, 7).translate(0, 6, 0), trunkMat));
+// Tiers of branches up to just under the nest, and a slim spire above it
+[[3.5, 2.6, 2.8], [5.2, 2.2, 2.6], [6.8, 1.8, 2.3], [8.3, 1.4, 2.0], [NEST.height + 0.6, 0.45, 1.8]].forEach(([base, radius, height]) => {
+  const tier = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 8).translate(0, base + height / 2, 0), leafMat);
+  tier.receiveShadow = true;
+  nestTree.add(tier);
+});
+const nest = new THREE.Group();
+const stickMats = [0x6b4a2f, 0x7d6a55, 0x4a3828].map(color => new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
+// An open-topped bowl, with a soft lining down in the cup
+const nestBowl = new THREE.Mesh(new THREE.CylinderGeometry(NEST.radius, 0.55, 0.6, 12, 1, true).translate(0, -0.3, 0), stickMats[2]);
+const lining = new THREE.Mesh(new THREE.CircleGeometry(NEST.radius * 0.92, 12).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x9a8660 }));
+lining.position.y = -0.18;
+nest.add(nestBowl, lining);
+// Sticks woven round the rim, poking out every which way
+for (let i = 0; i < 40; i++) {
+  const angle = nestRand() * Math.PI * 2;
+  const length = 0.9 + nestRand() * 0.6;
+  const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, length, 4), stickMats[i % 3]);
+  stick.position.set(Math.cos(angle) * NEST.radius * 0.9, -0.05 - nestRand() * 0.4, Math.sin(angle) * NEST.radius * 0.9);
+  stick.rotation.set(Math.PI / 2 + (nestRand() - 0.5) * 0.6, -angle + (nestRand() - 0.5) * 0.8, 0, "YXZ");
+  nest.add(stick);
+}
+nest.position.y = NEST.height;
+nestTree.add(nest);
+nestTree.position.set(NEST.x, groundY, NEST.z);
+castShadows(nestTree);
+scene.add(nestTree);
+// Where the eagle stands on the rim (the side facing the starting view), looking in across the
+// nest at the eaglets, and the way it drops off when it leaves; where its mate stands guard
+const nestOut = Math.atan2(HOME_POSITION.x - NEST.x, HOME_POSITION.z - NEST.z);
+const yawVector = (yaw, out = new THREE.Vector3()) => out.set(Math.sin(yaw), 0, Math.cos(yaw));
+const NEST_PERCH = yawVector(nestOut).multiplyScalar(NEST.radius * 0.8).add(new THREE.Vector3(NEST.x, NEST_RIM_Y + 0.3, NEST.z));
+const nestFacing = yawVector(nestOut + Math.PI - 1.0);
+const nestLaunch = yawVector(nestOut + 0.6);
+const MATE_PERCH = yawVector(nestOut - 1.7).multiplyScalar(NEST.radius * 0.85).add(new THREE.Vector3(NEST.x, NEST_RIM_Y + 0.32, NEST.z));
+const mateFacing = yawVector(nestOut - 1.7 + 0.5);
+// Where the eagle lands with a catch: the snag to eat it, or the nest to feed the eaglets
+const ROOSTS = {
+  snag: { point: PERCH, facing: perchFacing, launch: perchFacing },
+  nest: { point: NEST_PERCH, facing: nestFacing, launch: nestLaunch }
+};
+const NEST_CHANCE = 0.5;
 
 const cloudMat = new THREE.MeshLambertMaterial({ color: 0xffd2b8, emissive: 0x6a3a4a });
 const clouds = [];
@@ -1505,14 +1556,207 @@ for (const centre of LILY_CLUSTERS) {
     lilyPads.push(lily);
   }
 }
+// Everything that swims, wades or paddles through the shallows, with how close it comes before it
+// rocks a lily pad or startles a frog; each animal adds itself
+const lakeVisitors = ducks.map(duck => ({ object: duck, reach: 1.5 }));
+const nearVisitor = (position, extra) => lakeVisitors.some(({ object, reach, afloat }) =>
+  object.visible && object.position.y > LAKE.y - 1 && (!afloat || afloat())
+  && Math.hypot(object.position.x - position.x, object.position.z - position.z) < reach + extra);
 function updateLilyPads(dt, now) {
   for (const lily of lilyPads) {
     const l = lily.userData;
-    const nudged = ducks.some(duck => Math.hypot(duck.position.x - lily.position.x, duck.position.z - lily.position.z) < 1.5);
+    const nudged = nearVisitor(lily.position, 0);
     l.bob = nudged ? Math.min(1, l.bob + dt * 3) : l.bob * Math.exp(-dt * 0.8);
     lily.position.y = l.restY + Math.sin(now * 5 + l.phase) * 0.03 * l.bob;
     lily.rotation.x = Math.sin(now * 4 + l.phase) * 0.08 * l.bob;
     lily.rotation.z = Math.cos(now * 3.5 + l.phase) * 0.08 * l.bob;
+  }
+}
+
+// Green frogs sitting out on some of the lily pads, bobbing with them. They croak, mostly after
+// dark, puffing out their throats, and leap into the water with a plop when anything comes close,
+// climbing back out a while later
+const FROG_SCALE = 1.6; // a little larger than life, like the ducks
+const FROG_LEAP_SECONDS = 0.45;
+const frogSkin = new THREE.MeshStandardMaterial({ color: 0x4f7d34, flatShading: true, roughness: 0.6 });
+const frogBelly = new THREE.MeshStandardMaterial({ color: 0xd9d6a0, flatShading: true, roughness: 0.6 });
+function makeFrog() {
+  const frog = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), frogSkin);
+  body.scale.set(1, 0.6, 1.3);
+  body.position.y = 0.03;
+  body.rotation.x = -0.25; // sitting up at the front
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.038, 8, 6), frogSkin);
+  head.scale.set(1.1, 0.7, 1);
+  head.position.set(0, 0.045, 0.05);
+  // Pale throat sac that balloons out with each croak
+  const throat = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), frogBelly);
+  throat.position.set(0, 0.028, 0.068);
+  frog.add(body, head, throat);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1a1a0e });
+  for (const side of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 6, 4), frogSkin);
+    eye.position.set(0.022 * side, 0.068, 0.048);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.008, 5, 4), eyeMat);
+    pupil.position.set(0.026 * side, 0.072, 0.056);
+    // Folded back legs along the flanks
+    const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 4), frogSkin);
+    thigh.scale.set(0.6, 0.5, 1.4);
+    thigh.position.set(0.045 * side, 0.018, -0.03);
+    frog.add(eye, pupil, thigh);
+  }
+  frog.scale.setScalar(FROG_SCALE);
+  frog.traverse(o => o.layers.set(NOT_REFLECTED)); // like the pads they sit on
+  Object.assign(frog.userData, { throat });
+  return frog;
+}
+const frogs = [3, 9, 12, 17, 22, 26].map(i => {
+  const pad = lilyPads[i];
+  const frog = makeFrog();
+  frog.rotation.y = Math.random() * Math.PI * 2;
+  scene.add(frog);
+  Object.assign(frog.userData, {
+    pad, state: "sit", timer: 0, time: 0, croak: -1, croakTimer: 2 + Math.random() * 10,
+    from: new THREE.Vector3(), to: new THREE.Vector3()
+  });
+  return frog;
+});
+const frogPadPoint = (frog, out) => out.set(frog.userData.pad.position.x, frog.userData.pad.position.y + 0.01, frog.userData.pad.position.z);
+function updateFrogs(dt) {
+  const night = sunHeight < 0.02;
+  for (const frog of frogs) {
+    const f = frog.userData;
+    f.time += dt;
+    if (f.state === "sit") {
+      frogPadPoint(frog, frog.position);
+      if (nearVisitor(frog.position, 0.3)) {
+        // Away off the far side of the pad into the water
+        const away = frog.rotation.y + (Math.random() - 0.5) * 1.2;
+        f.from.copy(frog.position);
+        f.to.set(frog.position.x + Math.sin(away) * 0.8, LAKE.y, frog.position.z + Math.cos(away) * 0.8);
+        frog.rotation.y = away;
+        Object.assign(f, { state: "leap", time: 0, croak: -1 });
+      }
+      // Croak every few seconds after dark, only now and then by day
+      f.croakTimer -= dt;
+      if (f.croakTimer <= 0) {
+        f.croak = 0;
+        f.croakTimer = night ? 3 + Math.random() * 7 : 25 + Math.random() * 40;
+        if (sound.on) frogCroak(clamp((frog.position.x - camera.position.x) / 25, -0.8, 0.8), 1.4);
+      }
+    } else if (f.state === "leap") {
+      const p = Math.min(f.time / FROG_LEAP_SECONDS, 1);
+      frog.position.lerpVectors(f.from, f.to, p);
+      frog.position.y += Math.sin(p * Math.PI) * 0.35;
+      if (p >= 1) {
+        splash(f.to, 0.12);
+        frog.visible = false;
+        Object.assign(f, { state: "under", timer: 12 + Math.random() * 18 });
+      }
+    } else if (f.state === "under") {
+      f.timer -= dt;
+      if (f.timer <= 0 && !nearVisitor(f.pad.position, 1)) {
+        // Surface beside the pad and haul out onto it
+        f.from.set(f.pad.position.x - Math.sin(frog.rotation.y) * 0.5, LAKE.y - 0.05, f.pad.position.z - Math.cos(frog.rotation.y) * 0.5);
+        frog.visible = true;
+        Object.assign(f, { state: "climb", time: 0 });
+      }
+    } else if (f.state === "climb") {
+      const p = smootherstep(f.time / 0.8, 0, 1);
+      frog.position.lerpVectors(f.from, frogPadPoint(frog, f.to), p);
+      if (p >= 1) f.state = "sit";
+    }
+    // Two quick puffs of the throat, in time with the croak
+    let puff = 0;
+    if (f.croak >= 0) {
+      f.croak += dt;
+      puff = Math.max(Math.sin(clamp(f.croak / 0.2, 0, 1) * Math.PI), Math.sin(clamp((f.croak - 0.3) / 0.2, 0, 1) * Math.PI));
+      if (f.croak > 0.6) f.croak = -1;
+    }
+    f.throat.scale.setScalar(1 + 1.4 * puff);
+  }
+}
+
+// Dragonflies darting over the lily pads on fine days: a hover, a sudden dart to a new spot, then
+// another hover, their glassy wings a blur
+const DRAGONFLY_SCALE = 3.5; // larger than life so they read from the shore
+const dragonflyWingMat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+function makeDragonfly(color) {
+  const fly = new THREE.Group();
+  const shell = new THREE.MeshStandardMaterial({ color, flatShading: true, metalness: 0.4, roughness: 0.35 });
+  const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 4), shell);
+  thorax.scale.z = 1.5;
+  const abdomen = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0025, 0.055, 5).rotateX(Math.PI / 2), shell);
+  abdomen.position.z = -0.036;
+  const eyes = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 4), new THREE.MeshStandardMaterial({ color: 0x2a3a2a, roughness: 0.3 }));
+  eyes.scale.x = 1.5;
+  eyes.position.z = 0.014;
+  fly.add(thorax, abdomen, eyes);
+  const wings = [];
+  for (const side of [1, -1]) {
+    for (const z of [0.004, -0.006]) {
+      const wing = new THREE.Group();
+      wing.position.set(0.003 * side, 0.004, z);
+      const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.008).rotateX(-Math.PI / 2).translate(0.02 * side, 0, 0), dragonflyWingMat);
+      wing.add(blade);
+      fly.add(wing);
+      wings.push({ wing, side });
+    }
+  }
+  fly.scale.setScalar(DRAGONFLY_SCALE);
+  Object.assign(fly.userData, { wings });
+  return fly;
+}
+const dragonflies = [0x2f6fd0, 0x3aa860, 0xc8402a, 0x2f6fd0, 0x7a50c0].map((color, i) => {
+  const fly = makeDragonfly(color);
+  fly.visible = false;
+  scene.add(fly);
+  const angle = LILY_CLUSTERS[i % LILY_CLUSTERS.length];
+  Object.assign(fly.userData, {
+    home: new THREE.Vector3(LAKE.x + Math.cos(angle) * 0.78 * LAKE.rx, LAKE.y, LAKE.z + Math.sin(angle) * 0.78 * LAKE.rz),
+    from: new THREE.Vector3(), to: new THREE.Vector3(), time: 0, darting: false, hover: 0, seed: Math.random() * 10
+  });
+  return fly;
+});
+// A new spot to hover over, near its home patch of pads
+function dragonflySpot(fly, out) {
+  const { home } = fly.userData;
+  const angle = Math.random() * Math.PI * 2;
+  const reach = 0.6 + Math.random() * 2.2;
+  return out.set(home.x + Math.cos(angle) * reach, LAKE.y + 0.25 + Math.random() * 0.9, home.z + Math.sin(angle) * reach);
+}
+function updateDragonflies(dt, now) {
+  const fine = sunHeight > 0.12 && weather.rain < 0.2 && weather.overcast < 0.6;
+  for (const fly of dragonflies) {
+    const d = fly.userData;
+    if (!fine) {
+      fly.visible = false;
+      continue;
+    }
+    if (!fly.visible) {
+      // Arrive from the reeds
+      fly.visible = true;
+      dragonflySpot(fly, fly.position).y += 2;
+      d.darting = false;
+      d.hover = 0;
+    }
+    d.time += dt;
+    if (d.darting) {
+      const p = smootherstep(d.time / d.dartSeconds, 0, 1);
+      fly.position.lerpVectors(d.from, d.to, p);
+      if (p >= 1) Object.assign(d, { darting: false, hover: 0.5 + Math.random() * 1.8, time: 0 });
+    } else {
+      // Hold almost still, with a tiny drift and bob
+      fly.position.x += Math.sin(now * 3.1 + d.seed) * 0.02 * dt;
+      fly.position.y += Math.sin(now * 5.3 + d.seed) * 0.03 * dt;
+      if (d.time >= d.hover) {
+        d.from.copy(fly.position);
+        dragonflySpot(fly, d.to);
+        Object.assign(d, { darting: true, time: 0, dartSeconds: 0.18 + d.from.distanceTo(d.to) * 0.1 });
+        fly.rotation.y = Math.atan2(d.to.x - d.from.x, d.to.z - d.from.z);
+      }
+    }
+    for (const { wing, side } of d.wings) wing.rotation.z = side * Math.sin(now * 95 + d.seed + side) * 0.5;
   }
 }
 
@@ -1785,6 +2029,7 @@ function makeHeron() {
 const heron = makeHeron();
 castShadows(heron);
 scene.add(heron);
+lakeVisitors.push({ object: heron, reach: 1.2 });
 const heronState = { mode: "wade", timer: 4, time: 0, angle: HERON_SHORE.from + 0.1, dir: 1, walk: 0, stalk: 0, splashed: false };
 const heronTip = new THREE.Vector3();
 function updateHeron(dt, now) {
@@ -1835,6 +2080,499 @@ function updateHeron(dt, now) {
   neck.rotation.x = lerp(lerp(NECK_UPRIGHT, NECK_STALKING, h.stalk), NECK_STRIKING, strike);
   // Bill level while upright, pointing down into the water on the stab, tipped up to swallow
   head.rotation.x = -neck.rotation.x + strike * 1.3 - (h.mode === "swallow" ? 0.6 : 0);
+}
+
+// A bull moose that walks out of the trees on the left before dawn and wades into the shallows to feed:
+// he dunks his whole head under for water plants, then hauls it up with water streaming off his
+// muzzle and antlers and stands chewing before the next dunk, shifting about between dunks. By mid
+// morning he wades out and goes back into the trees.
+// He sets off in the dark so he's in the water by early morning, with time for a few dunks
+const MOOSE_HOURS = { out: 2, home: 10.5 };
+const MOOSE_WALK_SPEED = 1.6;
+const MOOSE_FOREST = new THREE.Vector3(-36, groundY, -21);  // where he comes and goes, out of the starting view
+const MOOSE_SHORE = new THREE.Vector3(-21.5, groundY, -22.8);
+const MOOSE_WADE = new THREE.Vector3(-14.5, groundY, -23.5); // knee-deep among the lily pads, clear of the heron
+const MOOSE_DEPTH = 0.55;
+const MOOSE_NECK_UP = -0.15;
+const MOOSE_NECK_DUNKED = 1.25;
+function makeMoose() {
+  const moose = new THREE.Group();
+  const coat = new THREE.MeshStandardMaterial({ color: 0x3a2618, flatShading: true, roughness: 0.95 });
+  const shanks = new THREE.MeshStandardMaterial({ color: 0x9a8a72, flatShading: true, roughness: 0.9 });
+  const antlerMat = new THREE.MeshStandardMaterial({ color: 0xcdb58c, flatShading: true, roughness: 0.8, side: THREE.DoubleSide });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 9), coat);
+  body.scale.set(0.85, 0.85, 1.75);
+  body.position.y = 1.55;
+  // The high hump over the shoulders
+  const hump = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), coat);
+  hump.scale.set(0.9, 0.9, 1.3);
+  hump.position.set(0, 1.85, 0.5);
+  moose.add(body, hump);
+  // Long legs, pale below the knee; front-left, front-right, back-left, back-right
+  const legs = [[0.26, 0.75], [-0.26, 0.75], [0.26, -0.75], [-0.26, -0.75]].map(([x, z], i) => {
+    const leg = new THREE.Group();
+    leg.position.set(x, 1.35, z);
+    const upperLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.07, 0.6, 6).translate(0, -0.3, 0), coat);
+    const lowerLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.75, 6).translate(0, -0.97, 0), shanks);
+    leg.add(upperLeg, lowerLeg);
+    moose.add(leg);
+    return { leg, phase: i === 0 || i === 3 ? 0 : Math.PI };
+  });
+  // Neck and head hang forward from the shoulders and swing down to dunk
+  const neck = new THREE.Group();
+  neck.position.set(0, 1.85, 1.0);
+  neck.rotation.x = MOOSE_NECK_UP;
+  const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.3, 0.75, 8).rotateX(Math.PI / 2).translate(0, 0, 0.3), coat);
+  const head = new THREE.Group();
+  head.position.set(0, -0.05, 0.65);
+  const skull = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.45), coat);
+  skull.position.set(0, 0, 0.1);
+  // The long, drooping, overhanging muzzle
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.19, 8, 6), coat);
+  muzzle.scale.set(0.95, 0.9, 1.5);
+  muzzle.position.set(0, -0.12, 0.45);
+  const nose = new THREE.Object3D();
+  nose.position.set(0, -0.22, 0.68);
+  // The bell, a flap of skin hanging under the throat
+  const bell = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 5), coat);
+  bell.rotation.x = Math.PI;
+  bell.position.set(0, -0.35, 0.02);
+  head.add(skull, muzzle, nose, bell);
+  const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0e0a08 });
+  const ears = [];
+  for (const side of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 4), eyeMat);
+    eye.position.set(0.15 * side, 0.07, 0.17);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 5), coat);
+    ear.position.set(0.15 * side, 0.2, -0.08);
+    ear.rotation.z = -0.9 * side;
+    ears.push({ ear, side });
+    // A broad, flat palm of antler on a short beam, fringed with tines
+    const antler = new THREE.Group();
+    antler.position.set(0.14 * side, 0.18, -0.02);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.3, 5).rotateZ(Math.PI / 2).translate(0.15 * side, 0, 0), antlerMat);
+    const palmShape = new THREE.Shape();
+    palmShape.moveTo(0, 0);
+    palmShape.quadraticCurveTo(0.2, -0.2, 0.6, -0.05);
+    [[0.68, 0.12], [0.6, 0.15], [0.66, 0.3], [0.52, 0.3], [0.52, 0.45], [0.4, 0.38], [0.3, 0.5], [0.24, 0.36], [0.08, 0.42], [0.1, 0.22]].forEach(([x, y]) => palmShape.lineTo(x, y));
+    palmShape.lineTo(0, 0);
+    const palm = new THREE.Mesh(new THREE.ShapeGeometry(palmShape), antlerMat);
+    palm.scale.set(1.3 * side, 1.3, 1);
+    palm.rotation.set(-0.5, 0, 0.25 * side);
+    palm.position.x = 0.25 * side;
+    antler.add(beam, palm);
+    head.add(eye, ear, antler);
+  }
+  neck.add(neckMesh, head);
+  moose.add(neck);
+  Object.assign(moose.userData, { legs, neck, head, nose, ears });
+  return moose;
+}
+const moose = makeMoose();
+castShadows(moose);
+scene.add(moose);
+lakeVisitors.push({ object: moose, reach: 2.2 });
+// Water streaming off his head after a dunk
+const DRIPS = 30;
+const dripMat = new THREE.MeshBasicMaterial({ color: 0xdfe9f0 });
+const drips = Array.from({ length: DRIPS }, () => {
+  const drop = new THREE.Mesh(new THREE.SphereGeometry(0.022, 5, 3), dripMat);
+  drop.visible = false;
+  drop.layers.set(NOT_REFLECTED);
+  drop.userData.velocity = new THREE.Vector3();
+  scene.add(drop);
+  return drop;
+});
+let nextDrip = 0;
+const dripFrom = new THREE.Vector3();
+function updateDrips(dt) {
+  for (const drop of drips) {
+    if (!drop.visible) continue;
+    drop.userData.velocity.y -= 9.8 * dt;
+    drop.position.addScaledVector(drop.userData.velocity, dt);
+    if (drop.position.y < LAKE.y) drop.visible = false;
+  }
+}
+function drip(at, spread) {
+  const drop = drips[nextDrip++ % DRIPS];
+  drop.position.set(at.x + (Math.random() - 0.5) * spread, at.y, at.z + (Math.random() - 0.5) * spread);
+  drop.userData.velocity.set((Math.random() - 0.5) * 0.3, -Math.random() * 0.5, (Math.random() - 0.5) * 0.3);
+  drop.visible = true;
+}
+// The page opens at dawn, with him already out in the shallows
+const mooseState = {
+  mode: "feed", timer: 2, time: 0, route: [], speed: 0, stride: 0, gait: 0, neck: MOOSE_NECK_UP, dripping: 0,
+  target: MOOSE_WADE.clone(), heading: Math.PI / 2
+};
+moose.position.copy(MOOSE_WADE);
+moose.rotation.y = mooseState.heading;
+const mooseOut = () => hour >= MOOSE_HOURS.out && hour < MOOSE_HOURS.home;
+function setMooseMode(mode, timer) {
+  Object.assign(mooseState, { mode, timer, time: 0 });
+  // Turn a little this way or that between mouthfuls
+  if (mode === "feed") mooseState.heading += (Math.random() - 0.5) * 0.6;
+}
+function walkMoose(route, then) {
+  Object.assign(mooseState, { route: route.map(point => point.clone()), then });
+  setMooseMode("walk", Infinity);
+}
+// How deep the water is where he stands, from nothing at the edge to knee-deep further in
+const mooseDepth = ({ x, z }) => (1 - smoothstep(lakeReach({ x, z }), 0.82, 1)) * MOOSE_DEPTH;
+function updateMoose(dt, now) {
+  const m = mooseState;
+  const { legs, neck, nose, ears } = moose.userData;
+  m.time += dt;
+  m.timer -= dt;
+  if (m.mode === "away") {
+    moose.visible = false;
+    if (mooseOut()) {
+      moose.visible = true;
+      moose.position.copy(MOOSE_FOREST);
+      walkMoose([MOOSE_SHORE, MOOSE_WADE], "feed");
+    }
+    return;
+  }
+  // Off back into the trees once the morning is under way
+  if (!mooseOut() && m.mode !== "walk" && m.then !== "away") walkMoose([MOOSE_SHORE, MOOSE_FOREST], "away");
+  let neckTarget = MOOSE_NECK_UP;
+  if (m.mode === "walk") {
+    const next = m.route[0];
+    m.heading = Math.atan2(next.x - moose.position.x, next.z - moose.position.z);
+    if (Math.hypot(next.x - moose.position.x, next.z - moose.position.z) < 0.5) {
+      m.route.shift();
+      if (!m.route.length) {
+        if (m.then === "away") return setMooseMode("away", 0);
+        setMooseMode(m.then, 2 + Math.random() * 2);
+      }
+    }
+  } else if (m.mode === "feed") {
+    // Look about and chew, then dunk again (or shuffle a step or two first)
+    if (m.timer <= 0) {
+      if (Math.random() < 0.35) {
+        const angle = Math.random() * Math.PI * 2;
+        walkMoose([new THREE.Vector3(MOOSE_WADE.x + Math.cos(angle) * 1.5, groundY, MOOSE_WADE.z + Math.sin(angle) * 1.2)], "feed");
+      } else setMooseMode("dunk", 4 + Math.random() * 3);
+    }
+  } else if (m.mode === "dunk") {
+    neckTarget = MOOSE_NECK_DUNKED;
+    if (m.time > 0.9 && m.time - dt <= 0.9) splash(nose.getWorldPosition(dripFrom), 0.25);
+    if (m.timer <= 0) {
+      // Up he comes, streaming water
+      splash(nose.getWorldPosition(dripFrom), 0.4);
+      m.dripping = 1.8;
+      setMooseMode("feed", 4 + Math.random() * 4);
+    }
+  }
+  const walking = m.mode === "walk";
+  m.speed += ((walking ? MOOSE_WALK_SPEED * (m.route.length && mooseDepth(moose.position) > 0.2 ? 0.6 : 1) : 0) - m.speed) * easeFactor(dt, 2);
+  m.stride += ((walking ? 1 : 0) - m.stride) * easeFactor(dt, 3);
+  moose.rotation.y += turnTowards(moose.rotation.y, m.heading) * easeFactor(dt, 1.5);
+  moose.position.x += Math.sin(moose.rotation.y) * m.speed * dt;
+  moose.position.z += Math.cos(moose.rotation.y) * m.speed * dt;
+  m.gait += dt * m.speed * 2.6;
+  moose.position.y = groundY - mooseDepth(moose.position) + Math.abs(Math.sin(m.gait)) * 0.04 * m.stride;
+  for (const { leg, phase } of legs) leg.rotation.x = Math.sin(m.gait + phase) * 0.35 * m.stride;
+  // Head swings down slowly into the water and comes up a little quicker
+  m.neck += (neckTarget - m.neck) * easeFactor(dt, neckTarget > m.neck ? 1.6 : 2.2);
+  neck.rotation.x = m.neck + (m.mode === "feed" ? Math.sin(now * 0.5) * 0.05 : 0);
+  neck.rotation.y = m.mode === "feed" ? Math.sin(now * 0.3 + 1) * 0.35 : 0;
+  // Chewing jaw and flicking ears
+  moose.userData.head.rotation.x = m.mode === "feed" ? Math.max(Math.sin(now * 6), 0) * 0.04 : 0;
+  for (const { ear, side } of ears) ear.rotation.x = smoothstep(Math.sin(now * 1.3 + side * 2), 0.9, 1) * 0.4;
+  if (m.dripping > 0) {
+    m.dripping -= dt;
+    if (Math.random() < dt * 30 * Math.min(m.dripping, 1)) drip(nose.getWorldPosition(dripFrom), 0.25);
+    if (Math.random() < dt * 14 * Math.min(m.dripping, 1)) drip(dripFrom.copy(moose.userData.head.getWorldPosition(dripFrom)).setY(dripFrom.y + 0.2), 1.2);
+  }
+  updateDrips(dt);
+}
+
+// A common loon riding low on the open water with its chick on its back. It dives for fish,
+// leaving the chick bobbing on the surface, comes up somewhere else entirely (sometimes with a
+// fish for the chick) and swims back to it. Once a day it makes its long, pattering run across the
+// lake to take off, circles the valley calling and comes back in on a long skidding splash.
+// It wails at dusk and through the night, and gives its tremolo when the eagle comes in low.
+const LOON_SCALE = 1.4; // a little larger than life, like the ducks
+const LOON_SWIM_SPEED = 0.3;
+const LOON_REACH = 0.6; // keeps to the open water, away from the pads and shallows
+const LOON_TAKEOFF_HOUR = 10;
+const LOON_ALARM = { radius: 8, height: 2.5, rest: 20 }; // how close and low the eagle comes, and seconds before it'll startle again
+function makeLoon() {
+  const loon = new THREE.Group();
+  const black = new THREE.MeshStandardMaterial({ color: 0x15191b, flatShading: true, roughness: 0.6, side: THREE.DoubleSide });
+  const sheen = new THREE.MeshStandardMaterial({ color: 0x0f2a20, flatShading: true, roughness: 0.4, metalness: 0.3 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, flatShading: true, roughness: 0.7 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), black);
+  body.scale.set(0.95, 0.6, 2.4);
+  // The white chequers across the back
+  for (let row = 0; row < 4; row++) {
+    for (const side of [1, -1]) {
+      const spot = new THREE.Mesh(new THREE.SphereGeometry(0.018, 4, 3), white);
+      spot.scale.y = 0.4;
+      spot.position.set(0.06 * side, 0.075 - Math.abs(row - 1.5) * 0.008, 0.1 - row * 0.08);
+      loon.add(spot);
+    }
+  }
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.065, 0.16, 7), sheen);
+  neck.position.set(0, 0.1, 0.26);
+  neck.rotation.x = 0.35;
+  // The striped white necklace
+  const necklace = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.01, 4, 10), white);
+  necklace.rotation.x = Math.PI / 2 + 0.35;
+  necklace.position.set(0, 0.11, 0.265);
+  const head = new THREE.Group();
+  head.position.set(0, 0.2, 0.3);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), sheen);
+  skull.scale.z = 1.25;
+  // Long, dagger-like bill
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.15, 6), black);
+  bill.rotation.x = Math.PI / 2;
+  bill.position.set(0, -0.01, 0.13);
+  const catchFish = makeFish();
+  catchFish.scale.setScalar(0.45);
+  catchFish.rotation.y = Math.PI / 2;
+  catchFish.position.z = 0.15;
+  catchFish.visible = false;
+  head.add(skull, bill, catchFish);
+  for (const side of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.013, 5, 4), new THREE.MeshBasicMaterial({ color: 0xc8201a }));
+    eye.position.set(0.045 * side, 0.015, 0.035);
+    head.add(eye);
+  }
+  // Narrow, pointed wings, folded flat along the body until it flies
+  const wings = [1, -1].map(side => {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(0.1 * side, 0.05, 0.08);
+    shoulder.add(new THREE.Mesh(flatPart([[0, 0.08], [0.3, 0.05], [0.62, -0.06], [0.3, -0.08], [0, -0.1]], side < 0), black));
+    loon.add(shoulder);
+    return { shoulder, side };
+  });
+  loon.add(body, neck, necklace, head);
+  loon.scale.setScalar(LOON_SCALE);
+  Object.assign(loon.userData, { head, wings, catchFish });
+  return loon;
+}
+// A downy dark chick, small enough to ride between its parent's wings
+function makeLoonChick() {
+  const chick = new THREE.Group();
+  const down = new THREE.MeshStandardMaterial({ color: 0x3a3430, flatShading: true, roughness: 1 });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), down);
+  body.scale.set(0.9, 0.75, 1.2);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), down);
+  head.position.set(0, 0.06, 0.07);
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.01, 0.04, 5), new THREE.MeshStandardMaterial({ color: 0x1a1a1a }));
+  bill.rotation.x = Math.PI / 2;
+  bill.position.set(0, 0.055, 0.115);
+  chick.add(body, head, bill);
+  chick.scale.setScalar(LOON_SCALE);
+  return chick;
+}
+const loon = makeLoon();
+const loonChick = makeLoonChick();
+castShadows(loon);
+castShadows(loonChick);
+scene.add(loon, loonChick);
+lakeVisitors.push({ object: loon, reach: 1.2 }, { object: loonChick, reach: 0.6 });
+const loonWakeShape = new THREE.Shape();
+[[0, 0], [0.9, -2.2], [0, -0.5], [-0.9, -2.2], [0, 0]].forEach(([x, y], i) => (i ? loonWakeShape.lineTo(x, y) : loonWakeShape.moveTo(x, y)));
+const loonWake = new THREE.Mesh(new THREE.ShapeGeometry(loonWakeShape).rotateX(Math.PI / 2), wakeMat);
+loonWake.layers.set(NOT_REFLECTED);
+scene.add(loonWake);
+// Its flight once a day: lift off at the end of the run, circle out over the trees on either side
+// of the valley and come back in low from the left to land
+const LOON_RUN_START = new THREE.Vector3(-12, LAKE.y, -20);
+const LOON_LIFTOFF = new THREE.Vector3(10, LAKE.y, -20);
+const loonFlight = new THREE.CatmullRomCurve3([
+  [10, LAKE.y + 0.3, -20], [22, 1, -24], [28, 5, -36], [10, 6, -44], [-16, 6, -38],
+  [-34, 4, -28], [-28, 3, -12], [-20, -2.5, -17], [-14, LAKE.y + 0.05, -20]
+].map(point => new THREE.Vector3(...point)));
+const LOON_FLIGHT_LENGTH = loonFlight.getLength();
+const loonState = {
+  mode: "swim", timer: 6, time: 0, heading: 0, targetHeading: 0, speed: 0, depth: 0, flap: 0, wings: 0,
+  riding: true, ride: 1, flownToday: -1, splashTimer: 0, along: 0,
+  alarmed: false, calm: 0, chickTimer: 0, from: new THREE.Vector3()
+};
+loon.position.set(8, LAKE.y, -22);
+loonChick.position.copy(loon.position);
+const loonHeadWorld = new THREE.Vector3();
+const chickSeat = new THREE.Vector3(0, 0.1, -0.12); // on its parent's back, in the parent's frame
+function setLoonMode(mode, timer) {
+  Object.assign(loonState, { mode, timer, time: 0 });
+}
+// Somewhere on open water at least `away` metres from where it is now
+function loonSurfacePoint(away, out) {
+  for (let tries = 0; tries < 20; tries++) {
+    randomLakePoint(LOON_REACH, out);
+    if (out.distanceTo(loon.position) > away) break;
+  }
+  return out.setY(LAKE.y);
+}
+function loonDive(alarmed) {
+  const l = loonState;
+  // The chick slips off and waits, unless the eagle is about, when it dives too
+  l.riding = false;
+  l.alarmed = alarmed;
+  l.chickTimer = alarmed ? 3 + Math.random() * 2 : 0;
+  loonChick.position.y = LAKE.y;
+  setLoonMode("dive", 0.7);
+}
+function updateLoon(dt, now) {
+  const l = loonState;
+  const { head, wings, catchFish } = loon.userData;
+  l.time += dt;
+  l.timer -= dt;
+  const pan = clamp((loon.position.x - camera.position.x) / 30, -0.8, 0.8);
+  l.calm -= dt;
+  const eagleNear = l.calm <= 0 && bird.position.y < LAKE.y + LOON_ALARM.height
+    && Math.hypot(bird.position.x - loon.position.x, bird.position.z - loon.position.z) < LOON_ALARM.radius;
+  let pitch = 0;
+  let speed = 0;
+  if (l.mode === "swim" || l.mode === "return" || l.mode === "toRun") {
+    if (eagleNear && l.mode !== "toRun") {
+      // Laughing alarm, and down it goes, chick and all
+      loonTremolo(pan);
+      l.calm = LOON_ALARM.rest;
+      loonDive(true);
+    } else if (l.mode === "swim") {
+      // Paddle about the open water, turning back in from the edge
+      if (lakeReach(loon.position) > LOON_REACH) l.targetHeading = Math.atan2(LAKE.x - loon.position.x, LAKE.z - loon.position.z);
+      else if (l.time > 3 && Math.random() < dt * 0.3) l.targetHeading += (Math.random() - 0.5) * 1.6;
+      speed = LOON_SWIM_SPEED;
+      if (l.timer <= 0) {
+        // Once a day: counted by evenings, since the day number turns over at noon, mid-window
+        const takeoffTime = l.flownToday !== nightsSeen && hour >= LOON_TAKEOFF_HOUR && hour < SUNSET - 2 && weather.phase === "clear";
+        if (takeoffTime) setLoonMode("toRun", Infinity);
+        else loonDive(false);
+      }
+    } else {
+      // Swimming back to the chick, or out to the end of the lake to start its run
+      const goal = l.mode === "return" ? loonChick.position : LOON_RUN_START;
+      l.targetHeading = Math.atan2(goal.x - loon.position.x, goal.z - loon.position.z);
+      const gap = Math.hypot(goal.x - loon.position.x, goal.z - loon.position.z);
+      speed = LOON_SWIM_SPEED * (l.mode === "return" ? 1.6 : 3) * clamp(gap, 0.3, 1);
+      if (l.mode === "return" && gap < 0.4) {
+        // Hand over the catch, and the chick climbs back aboard
+        catchFish.visible = false;
+        l.riding = true;
+        l.alarmed = false;
+        setLoonMode("swim", 15 + Math.random() * 15);
+      }
+      if (l.mode === "toRun" && gap < 0.6) {
+        // Stop, leave the chick and turn to face down the lake
+        speed = 0;
+        l.targetHeading = Math.atan2(LOON_LIFTOFF.x - loon.position.x, LOON_LIFTOFF.z - loon.position.z);
+        l.riding = false;
+        if (Math.abs(turnTowards(l.heading, l.targetHeading)) < 0.1) setLoonMode("run", Infinity);
+      }
+      // Too late in the day now: try again tomorrow
+      if (l.mode === "toRun" && l.riding && (hour >= SUNSET - 2 || weather.phase !== "clear")) setLoonMode("swim", 10);
+    }
+  } else if (l.mode === "dive") {
+    // Tip forward and slide under
+    pitch = 0.5 * smoothstep(l.time, 0, 0.7);
+    l.depth = smoothstep(l.time, 0.1, 0.7) * 0.5;
+    speed = LOON_SWIM_SPEED;
+    if (l.timer <= 0) {
+      splash(loon.position, 0.1);
+      loon.visible = false;
+      setLoonMode("under", l.alarmed ? 4 + Math.random() * 2 : 9 + Math.random() * 9);
+    }
+  } else if (l.mode === "under") {
+    if (l.timer <= 0) {
+      // Up again somewhere unexpected (or right by the chick after hiding from the eagle)
+      if (l.alarmed) loon.position.set(loonChick.position.x + 1.2, LAKE.y, loonChick.position.z + 0.8);
+      else loonSurfacePoint(6, loon.position);
+      l.heading = l.targetHeading = Math.atan2(loonChick.position.x - loon.position.x, loonChick.position.z - loon.position.z);
+      catchFish.visible = !l.alarmed && Math.random() < 0.45;
+      loon.visible = true;
+      l.depth = 0.4;
+      splash(loon.position, 0.15);
+      setLoonMode("return", Infinity);
+    }
+  } else if (l.mode === "run") {
+    // Wings beating, feet pattering along the surface for twenty metres before it lifts clear
+    const run = clamp((loon.position.x - LOON_RUN_START.x) / (LOON_LIFTOFF.x - LOON_RUN_START.x), 0, 1);
+    speed = lerp(1.5, 9, smoothstep(run, 0, 0.8));
+    l.wings = 1;
+    pitch = -0.15;
+    l.splashTimer -= dt;
+    if (l.splashTimer <= 0) {
+      splash(loon.position, 0.08);
+      l.splashTimer = 0.28;
+    }
+    if (l.time > 0.5 && l.time - dt <= 0.5) loonTremolo(pan);
+    if (run >= 1) {
+      l.flownToday = nightsSeen;
+      l.along = 0;
+      setLoonMode("fly", Infinity);
+    }
+  } else if (l.mode === "fly") {
+    l.along = Math.min(l.along + (9 * dt) / LOON_FLIGHT_LENGTH, 1);
+    l.from.copy(loon.position);
+    loonFlight.getPointAt(l.along, loon.position);
+    l.heading = l.targetHeading = Math.atan2(loon.position.x - l.from.x, loon.position.z - l.from.z);
+    pitch = -Math.atan2(loon.position.y - l.from.y, Math.hypot(loon.position.x - l.from.x, loon.position.z - l.from.z));
+    l.wings = 1;
+    if (l.time > 6 && l.time - dt <= 6) loonTremolo(pan);
+    if (l.along >= 1) setLoonMode("skid", Infinity);
+  } else if (l.mode === "skid") {
+    // A long splashing slide to a stop, then fold up and paddle back to the chick
+    speed = 9 * (1 - smoothstep(l.time, 0, 2.6));
+    l.wings = 1 - smoothstep(l.time, 0.6, 2);
+    l.splashTimer -= dt;
+    if (l.splashTimer <= 0 && speed > 1.5) {
+      splash(loon.position, 0.12 * speed / 9 + 0.05);
+      l.splashTimer = 0.22;
+    }
+    if (l.time > 2.8) setLoonMode("return", Infinity);
+  }
+  if (l.mode !== "fly") {
+    l.heading += turnTowards(l.heading, l.targetHeading) * easeFactor(dt, l.mode === "run" || l.mode === "skid" ? 0.5 : 1);
+    loon.position.x += Math.sin(l.heading) * speed * dt;
+    loon.position.z += Math.cos(l.heading) * speed * dt;
+    if (l.mode !== "under") l.depth += ((l.mode === "dive" ? l.depth : 0) - l.depth) * easeFactor(dt, 2);
+    loon.position.y = LAKE.y - l.depth + Math.sin(now * 1.8) * 0.01 + (l.mode === "run" ? 0.08 * smoothstep(speed, 4, 9) : 0);
+  }
+  loon.rotation.set(pitch, l.heading, 0, "YXZ");
+  head.rotation.x = l.mode === "swim" ? Math.sin(now * 0.7) * 0.1 : 0;
+  if (l.mode !== "run" && l.mode !== "fly" && l.mode !== "skid") l.wings += (0 - l.wings) * easeFactor(dt, 3);
+  l.flap += dt * 11;
+  for (const { shoulder, side } of wings) {
+    shoulder.rotation.z = side * (Math.sin(l.flap) * 0.7 * l.wings + 0.05);
+    shoulder.rotation.y = side * 1.4 * (1 - l.wings);
+    shoulder.scale.x = 0.45 + 0.55 * l.wings;
+  }
+  // Wake while paddling along the surface
+  loonWake.visible = loon.visible && l.mode !== "fly" && speed > 0.05 && l.depth < 0.2;
+  loonWake.position.set(loon.position.x, LAKE.y + 0.01, loon.position.z);
+  loonWake.rotation.y = l.heading;
+  loonWake.scale.setScalar(0.8 + speed * 0.15);
+
+  // The chick rides along, or bobs where it was left (and ducks under with its parent at an alarm)
+  l.ride += ((l.riding ? 1 : 0) - l.ride) * easeFactor(dt, 4);
+  if (l.ride > 0.01) {
+    loon.updateMatrixWorld();
+    loon.localToWorld(loonHeadWorld.copy(chickSeat));
+    loonChick.position.lerp(loonHeadWorld, l.riding ? easeFactor(dt, 6) : 0);
+    loonChick.rotation.y = l.heading;
+  }
+  if (!l.riding) {
+    // Under with its parent for a few seconds after an alarm
+    if (l.chickTimer > 0) l.chickTimer -= dt;
+    loonChick.visible = l.chickTimer <= 0 || l.mode === "dive";
+    loonChick.position.y = LAKE.y + Math.sin(now * 2.3) * 0.012;
+    // Paddle a little way towards its parent as it swims back
+    if (l.mode === "return") {
+      const gap = Math.hypot(loon.position.x - loonChick.position.x, loon.position.z - loonChick.position.z);
+      const towards = Math.atan2(loon.position.x - loonChick.position.x, loon.position.z - loonChick.position.z);
+      loonChick.rotation.y += turnTowards(loonChick.rotation.y, towards) * easeFactor(dt, 2);
+      if (gap > 0.5) {
+        loonChick.position.x += Math.sin(loonChick.rotation.y) * 0.12 * dt;
+        loonChick.position.z += Math.cos(loonChick.rotation.y) * 0.12 * dt;
+      }
+    }
+  } else loonChick.visible = loon.visible;
+  if (catchFish.visible) catchFish.rotation.z = Math.sin(now * 18) * 0.3;
 }
 
 // Two campers with a tent, chairs and a fire pit on the right-hand shore. By day they sit in their
@@ -2097,6 +2835,151 @@ const campers = CAMPERS.map(outfit => {
   return camper;
 });
 
+// On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
+// slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
+// cloud over they turn for home before the rain comes. They still stop to point at the eagle.
+const CANOE_BEACH_ANGLE = 1.82 * Math.PI;
+const CANOE_BEACH = new THREE.Vector3(LAKE.x + Math.cos(CANOE_BEACH_ANGLE) * LAKE.rx * 0.97, LAKE.y, LAKE.z + Math.sin(CANOE_BEACH_ANGLE) * LAKE.rz * 0.97);
+// Round the open water east of the middle, clear of the heron, the moose and the lake-skimming
+// stretch of Look around; the last point is where they line up to come in
+const CANOE_ROUTE = [[12.5, -27.2], [6.5, -25.5], [4.5, -20], [8, -15], [14, -15.5], [18, -21.5]].map(([x, z]) => new THREE.Vector3(x, LAKE.y, z));
+const CANOE_HOURS = { from: 6.5, to: 9 };   // when they set out
+const CANOE_HOME_HOUR = 14;                 // and when they head back in, if they haven't already
+const CANOE_SPEED = 1.4;
+const CANOE_SEATS = [new THREE.Vector3(0, 0.1, -1.45), new THREE.Vector3(0, 0.1, 1.2)]; // his in the stern, hers in the bow
+const CANOE_THIGH = -1.55;
+const CANOE_KNEE = 0.7;
+const PADDLE_HEIGHT = 0.42;
+const PADDLE_TOP_GRIP = new THREE.Vector3(0, 0.12, 0);
+const PADDLE_LOW_GRIP = new THREE.Vector3(0, -0.42, 0);
+// A hull that narrows to a point at each end, with the gunwales sweeping up at bow and stern
+const CANOE_LENGTH = 4.6;
+const canoeBeam = z => 0.42 * Math.pow(Math.sin(Math.PI * (z / CANOE_LENGTH + 0.5)), 0.6); // half-width at the gunwale
+function canoeHullGeometry() {
+  const along = 28;
+  const around = 10;
+  const positions = [];
+  const index = [];
+  for (let i = 0; i <= along; i++) {
+    const t = i / along;
+    const width = canoeBeam((t - 0.5) * CANOE_LENGTH);
+    const top = 0.24 + 0.16 * Math.pow(2 * t - 1, 4);
+    const bottom = -0.13 * Math.pow(Math.sin(Math.PI * t), 0.4);
+    for (let j = 0; j <= around; j++) {
+      const angle = (j / around) * Math.PI;
+      positions.push(width * Math.cos(angle), top - (top - bottom) * Math.sin(angle), (t - 0.5) * CANOE_LENGTH);
+    }
+  }
+  for (let i = 0; i < along; i++) {
+    for (let j = 0; j < around; j++) {
+      const a = i * (around + 1) + j;
+      const b = a + around + 1;
+      index.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(index);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+const canoe = new THREE.Group();
+const canoeWood = new THREE.MeshLambertMaterial({ color: 0x8a6440 });
+canoe.add(new THREE.Mesh(canoeHullGeometry(), new THREE.MeshStandardMaterial({ color: 0xb03a26, flatShading: true, roughness: 0.6, side: THREE.DoubleSide })));
+for (const z of [-1.45, 0, 1.2]) {
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(canoeBeam(z) * 1.75, 0.03, 0.2), canoeWood);
+  seat.position.set(0, 0.12, z);
+  canoe.add(seat);
+}
+const canoeWake = new THREE.Mesh(new THREE.ShapeGeometry(loonWakeShape).rotateX(Math.PI / 2), wakeMat);
+canoeWake.layers.set(NOT_REFLECTED);
+canoeWake.scale.setScalar(2.4);
+scene.add(canoe, canoeWake);
+castShadows(canoe);
+// Only out on the water, not pulled up on the shore
+lakeVisitors.push({ object: canoe, reach: 2.2, afloat: () => canoeTrip.mode === "paddling" });
+// Pulled up at the water's edge below the camp, pointing the way it came in
+const canoeTrip = { mode: "beached", day: -1, route: [], speed: 0, heading: 0, stroke: 0, pulling: 0 };
+canoe.position.copy(CANOE_BEACH);
+canoeTrip.heading = Math.atan2(CANOE_BEACH.x - CANOE_ROUTE[CANOE_ROUTE.length - 1].x, CANOE_BEACH.z - CANOE_ROUTE[CANOE_ROUTE.length - 1].z);
+canoe.rotation.y = canoeTrip.heading;
+canoe.updateMatrixWorld();
+// Each camper's paddle, held across the body and stowed in the canoe when ashore
+const paddleMat = new THREE.MeshLambertMaterial({ color: 0xc89a5a });
+campers.forEach((camper, i) => {
+  const c = camper.userData;
+  const paddle = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1.15, 5).translate(0, -0.35, 0), paddleMat);
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.02).translate(0, -1.1, 0), paddleMat);
+  paddle.add(shaft, blade);
+  // Paddling on opposite sides
+  c.paddleSide = i === 0 ? 1 : -1;
+  paddle.position.set(c.paddleSide * 0.32, PADDLE_HEIGHT, 0.28);
+  paddle.visible = false;
+  c.upper.add(paddle);
+  Object.assign(c, { paddle, boat: 0, seatIndex: i, boatSeat: new THREE.Vector3(), boardSpot: new THREE.Vector3() });
+});
+const canoeSeatWorld = new THREE.Vector3();
+const shoreOut = new THREE.Vector3();
+function updateCanoe(dt, now, night) {
+  const t = canoeTrip;
+  canoe.updateMatrixWorld();
+  // Where each of them sits (camper origin below the seat, as in a chair), and where they stand to get in
+  shoreOut.set(CANOE_BEACH.x - LAKE.x, 0, CANOE_BEACH.z - LAKE.z).normalize();
+  for (const camper of campers) {
+    const c = camper.userData;
+    canoe.localToWorld(canoeSeatWorld.copy(CANOE_SEATS[c.seatIndex]));
+    c.boatSeat.copy(canoeSeatWorld).setY(canoeSeatWorld.y - SEAT_HEIGHT * camper.scale.y);
+    c.boardSpot.copy(canoeSeatWorld).addScaledVector(shoreOut, 1.1).setY(groundY);
+  }
+  const states = campers.map(camper => camper.userData.state);
+  if (t.mode === "beached") {
+    const fine = weather.phase === "clear" && weather.timer > 40;
+    const free = states.every(state => state !== "inTent" && state !== "toTent");
+    if (t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free) {
+      t.mode = "boarding";
+      for (const camper of campers) setCamperState(camper, "toCanoe");
+    }
+  } else if (t.mode === "boarding") {
+    // Called off if either of them is sent elsewhere (the rain coming on, say)
+    if (states.some(state => state !== "toCanoe" && state !== "boarding" && state !== "inCanoe")) {
+      t.mode = "beached";
+      for (const camper of campers) if (camper.userData.state === "boarding") setCamperState(camper, "walk");
+    } else if (campers.every(camper => camper.userData.state === "boarding" && camper.userData.sit > 0.95)) {
+      for (const camper of campers) setCamperState(camper, "inCanoe");
+      Object.assign(t, { mode: "paddling", day, route: CANOE_ROUTE.map(point => point.clone()).concat(CANOE_BEACH.clone()) });
+    }
+  } else if (t.mode === "paddling") {
+    // Turn for home if the weather is on the turn or the day is getting on
+    const homeward = weather.phase !== "clear" || hour >= CANOE_HOME_HOUR || night;
+    if (homeward && t.route.length > 2) t.route = [CANOE_ROUTE[CANOE_ROUTE.length - 1].clone(), CANOE_BEACH.clone()];
+    const next = t.route[0];
+    const gap = Math.hypot(next.x - canoe.position.x, next.z - canoe.position.z);
+    const last = t.route.length === 1;
+    t.heading += turnTowards(t.heading, Math.atan2(next.x - canoe.position.x, next.z - canoe.position.z)) * easeFactor(dt, last ? 1.2 : 0.7);
+    // Glide in gently on the last stretch to the shore
+    const wanted = last ? Math.min(CANOE_SPEED, gap * 0.45) : CANOE_SPEED;
+    t.speed += (wanted - t.speed) * easeFactor(dt, 0.8);
+    if (gap < (last ? 0.25 : 2)) t.route.shift();
+    if (!t.route.length) {
+      // Ashore: out they climb and back up to camp
+      t.mode = "beached";
+      t.speed = 0;
+      for (const camper of campers) setCamperState(camper, "walk");
+    }
+  }
+  canoe.position.x += Math.sin(t.heading) * t.speed * dt;
+  canoe.position.z += Math.cos(t.heading) * t.speed * dt;
+  canoe.position.y = LAKE.y + (t.mode === "paddling" ? Math.sin(now * 1.4) * 0.015 : 0);
+  canoe.rotation.set(0, t.heading, t.mode === "paddling" ? Math.sin(now * 1.1) * 0.025 : 0, "YXZ");
+  // A steady stroke, slowing as they glide in
+  t.pulling += ((t.mode === "paddling" && t.route.length > 0 && (t.route.length > 1 || t.speed > 0.3) ? 1 : 0) - t.pulling) * easeFactor(dt, 2);
+  t.stroke += dt * 3.2 * t.pulling;
+  canoeWake.visible = t.speed > 0.1;
+  canoeWake.position.set(canoe.position.x, LAKE.y + 0.01, canoe.position.z).addScaledVector(shoreOut.set(Math.sin(t.heading), 0, Math.cos(t.heading)), 1.8);
+  canoeWake.rotation.y = t.heading;
+}
+
 function pickCampSpot(out) {
   do {
     const angle = Math.random() * Math.PI * 2;
@@ -2122,6 +3005,11 @@ function setCamperState(camper, state) {
   } else if (state === "inTent") {
     camper.visible = false;
     c.timer = c.stagger;
+  } else if (state === "toCanoe") {
+    c.target.copy(c.boardSpot);
+    c.timer = 30;
+  } else if (state === "boarding" || state === "inCanoe") {
+    c.timer = Infinity; // the trip decides when they get out
   }
 }
 // What a camper does next when its time is up (or it gives up getting somewhere)
@@ -2133,7 +3021,7 @@ function nextCamperState(camper) {
   else setCamperState(camper, "stand");
 }
 // What a camper does on reaching where it was walking to
-const CAMPER_ARRIVALS = { walk: "stand", toChair: "sit", toTent: "inTent" };
+const CAMPER_ARRIVALS = { walk: "stand", toChair: "sit", toTent: "inTent", toCanoe: "boarding" };
 
 const eagleLocal = new THREE.Vector3();
 const lookLocal = new THREE.Vector3();
@@ -2151,7 +3039,9 @@ function updateCamper(camper, dt, now, indoors) {
     camper.rotation.y = tent.rotation.y;
     setCamperState(camper, "walk");
   }
-  if (indoors && c.state !== "toTent") setCamperState(camper, "toTent");
+  // Out on the water they paddle back in first; the trip lands them
+  const afloat = c.state === "boarding" || c.state === "inCanoe";
+  if (indoors && !afloat && c.state !== "toTent") setCamperState(camper, "toTent");
   c.timer -= dt;
   if (c.timer <= 0) nextCamperState(camper);
   else if (c.state in CAMPER_ARRIVALS && Math.hypot(c.target.x - camper.position.x, c.target.z - camper.position.z) < 0.25) {
@@ -2163,13 +3053,25 @@ function updateCamper(camper, dt, now, indoors) {
   const toEagle = Math.atan2(bird.position.x - camper.position.x, bird.position.z - camper.position.z);
   const overhead = bird.position.y > groundY + CAMPER_HEAD_HEIGHT + POINT_CLEARANCE && bird.position.distanceTo(camper.position) < POINT_RANGE;
   c.point += ((overhead && !indoors ? 1 : 0) - c.point) * easeFactor(dt, 4);
-  c.sit += ((c.state === "sit" ? 1 : 0) - c.sit) * easeFactor(dt, 3);
+  c.sit += ((c.state === "sit" || afloat ? 1 : 0) - c.sit) * easeFactor(dt, 3);
+  c.boat += ((afloat ? 1 : 0) - c.boat) * easeFactor(dt, 3);
   // Stand still to point, and get up out of the chair before walking off
   c.speed += ((moving ? CAMPER_WALK_SPEED * (1 - c.point) * (1 - c.sit) : 0) - c.speed) * easeFactor(dt, 5);
   if (c.state === "sit") {
     camper.position.lerp(c.seat, easeFactor(dt, 5));
     camper.rotation.y += turnTowards(camper.rotation.y, c.chairFacing) * easeFactor(dt, 5);
+  } else if (afloat) {
+    // Step in and settle onto the seat, then ride along with the canoe
+    if (c.state === "boarding") {
+      camper.position.lerp(c.boatSeat, easeFactor(dt, 3));
+      camper.rotation.y += turnTowards(camper.rotation.y, canoe.rotation.y) * easeFactor(dt, 4);
+    } else {
+      camper.position.copy(c.boatSeat);
+      camper.rotation.y = canoe.rotation.y;
+    }
   } else {
+    // Back on dry land after the canoe
+    camper.position.y += (groundY - camper.position.y) * easeFactor(dt, 4);
     const toTarget = Math.atan2(c.target.x - camper.position.x, c.target.z - camper.position.z);
     const facing = c.point > 0.5 ? toEagle : moving ? toTarget : camper.rotation.y;
     camper.rotation.y += turnTowards(camper.rotation.y, facing) * easeFactor(dt, 4);
@@ -2182,18 +3084,33 @@ function updateCamper(camper, dt, now, indoors) {
   const { legs, arms, body, upper, head } = c;
   const stride = c.speed / CAMPER_WALK_SPEED;
   c.walkPhase += dt * c.speed * 5.5;
+  // In the canoe their legs stretch out along the bottom instead
   for (const { thigh, knee, phase } of legs) {
-    thigh.rotation.x = lerp(Math.sin(c.walkPhase + phase) * 0.5 * stride, -Math.PI / 2, c.sit);
-    knee.rotation.x = lerp(Math.max(-Math.cos(c.walkPhase + phase), 0) * 0.8 * stride, Math.PI / 2, c.sit);
+    thigh.rotation.x = lerp(lerp(Math.sin(c.walkPhase + phase) * 0.5 * stride, -Math.PI / 2, c.sit), CANOE_THIGH, c.boat);
+    knee.rotation.x = lerp(lerp(Math.max(-Math.cos(c.walkPhase + phase), 0) * 0.8 * stride, Math.PI / 2, c.sit), CANOE_KNEE, c.boat);
   }
   body.position.y = Math.abs(Math.cos(c.walkPhase)) * 0.03 * stride - SIT_DROP * c.sit;
   // Seated, they lean back and twist round towards the eagle rather than turning the chair
-  upper.rotation.set(-0.12 * c.sit, clamp(turnTowards(camper.rotation.y, toEagle), -SEATED_TWIST, SEATED_TWIST) * c.point * c.sit, 0);
+  // Paddling, they swing through each stroke from the waist, pausing to point
+  const paddling = c.boat * (1 - c.point) * canoeTrip.pulling;
+  const twist = clamp(turnTowards(camper.rotation.y, toEagle), -SEATED_TWIST, SEATED_TWIST) * c.point * c.sit;
+  upper.rotation.set(-0.12 * c.sit, twist + Math.sin(canoeTrip.stroke + c.paddleSide) * 0.18 * paddling, 0);
+  const { paddle } = c;
+  paddle.visible = c.boat > 0.02;
+  paddle.rotation.set(Math.sin(canoeTrip.stroke + c.paddleSide) * 0.55 * paddling, 0, c.paddleSide * 0.25);
+  paddle.position.y = PADDLE_HEIGHT + Math.max(Math.cos(canoeTrip.stroke + c.paddleSide), 0) * 0.12 * paddling;
 
   camper.updateMatrixWorld();
   upper.worldToLocal(eagleLocal.copy(bird.position));
   for (const { shoulder, side, phase } of arms) {
     shoulder.quaternion.setFromEuler(armSwing.set(lerp(Math.sin(c.walkPhase + phase) * 0.45 * stride, -0.5, c.sit), 0, side * 0.08));
+    // Hands on the paddle: the arm on the paddling side low on the shaft, the other on the grip
+    if (c.boat > 0.001) {
+      paddle.localToWorld(lookLocal.copy(side === c.paddleSide ? PADDLE_LOW_GRIP : PADDLE_TOP_GRIP));
+      upper.worldToLocal(lookLocal).sub(shoulder.position).normalize();
+      armAim.setFromUnitVectors(ARM_DOWN, lookLocal);
+      shoulder.quaternion.slerp(armAim, c.boat);
+    }
     // The right arm points straight at the eagle
     if (side < 0 && c.point > 0.001) {
       armAim.setFromUnitVectors(ARM_DOWN, lookLocal.copy(eagleLocal).sub(shoulder.position).normalize());
@@ -2209,6 +3126,7 @@ function updateCamper(camper, dt, now, indoors) {
 
 function updateCamp(dt, now) {
   const night = hour >= CAMP_BEDTIME || hour < SUNRISE;
+  updateCanoe(dt, now, night);
   camp.fire += ((night ? 1 : 0) - camp.fire) * easeFactor(dt, 0.8);
   // The lamp is only lit after dark, not when they're sheltering from rain by day
   const inside = campers.some(camper => camper.userData.state === "inTent");
@@ -2320,6 +3238,93 @@ const bird = makeBird();
 castShadows(bird);
 scene.add(bird);
 
+// The eagle's mate, a touch larger as the female is, standing guard on the nest rim with its wings
+// folded, gazing about the valley and down at the eaglets when they're being fed
+const mate = makeBird();
+mate.scale.setScalar(1.08);
+for (const { shoulder, wrist, side } of mate.userData.wings) {
+  shoulder.rotation.set(0, side * 1.35, side * -0.06);
+  shoulder.scale.x = 0.55;
+  wrist.rotation.z = 0;
+}
+for (const foot of mate.userData.feet) foot.rotation.x = -1.15 * Math.PI;
+const nestLook = new THREE.Vector3();
+mate.position.copy(MATE_PERCH);
+mate.lookAt(nestLook.copy(MATE_PERCH).add(mateFacing));
+mate.rotateX(-0.6);
+castShadows(mate);
+scene.add(mate);
+// Two downy eaglets in the cup of the nest, begging with their heads up and beaks open whenever
+// a parent comes in with food
+function makeEaglet() {
+  const eaglet = new THREE.Group();
+  const down = new THREE.MeshStandardMaterial({ color: 0xb4ada2, flatShading: true, roughness: 1 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2a2620, flatShading: true });
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), down);
+  body.scale.set(1, 0.85, 1.15);
+  const neck = new THREE.Group();
+  neck.position.set(0, 0.1, 0.08);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 6), down);
+  head.position.set(0, 0.08, 0.03);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 5), dark);
+  beak.rotation.x = Math.PI / 2 + 0.3;
+  beak.position.set(0, 0.07, 0.12);
+  const jaw = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.06, 4), dark);
+  jaw.rotation.x = Math.PI / 2;
+  const jawHinge = new THREE.Group();
+  jawHinge.position.set(0, 0.05, 0.09);
+  jaw.position.z = 0.03;
+  jawHinge.add(jaw);
+  neck.add(head, beak, jawHinge);
+  for (const side of [1, -1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.014, 5, 4), dark);
+    eye.position.set(0.05 * side, 0.1, 0.08);
+    neck.add(eye);
+  }
+  eaglet.add(body, neck);
+  eaglet.scale.setScalar(1.3);
+  Object.assign(eaglet.userData, { neck, jawHinge, seed: Math.random() * 10, beg: 0 });
+  return eaglet;
+}
+const eaglets = [[0.45, 0.35], [0.1, 0.55]].map(([out, across]) => {
+  const eaglet = makeEaglet();
+  // In the cup, just in front of where the parent stands to feed them
+  eaglet.position.copy(yawVector(nestOut).multiplyScalar(out)).add(yawVector(nestOut + Math.PI / 2).multiplyScalar(-across))
+    .add(new THREE.Vector3(NEST.x, NEST_RIM_Y - 0.05, NEST.z));
+  eaglet.lookAt(nestLook.copy(NEST_PERCH).setY(eaglet.position.y));
+  castShadows(eaglet);
+  scene.add(eaglet);
+  return eaglet;
+});
+let peepTimer = 0;
+function updateNest(dt, now, pose) {
+  // A parent with food: coming in to the nest, or standing on the rim tearing it up for them
+  const atNest = eagle.roost === ROOSTS.nest && fish.visible;
+  const feeding = atNest && eagle.mode === "perched";
+  const arriving = atNest && eagle.mode === "toPerch" && eagle.time / eagle.travelSeconds > 0.5;
+  const asleep = sunHeight < -0.05;
+  eaglets.forEach((eaglet, i) => {
+    const e = eaglet.userData;
+    e.beg += ((feeding || arriving ? 1 : 0) - e.beg) * easeFactor(dt, 3);
+    // Heads up and stretching for each beakful, taking turns; heads down asleep at night
+    const turn = feeding ? Math.max(Math.sin(now * 3.5 + i * Math.PI), 0) * pose.eat : 0;
+    const idle = asleep ? 0.6 : Math.sin(now * 0.5 + e.seed) * 0.15;
+    e.neck.rotation.x = lerp(idle, -0.9 - 0.3 * turn + Math.sin(now * 9 + e.seed) * 0.1, e.beg);
+    e.neck.position.y = 0.1 + (0.12 + 0.05 * turn) * e.beg; // craning up out of the cup
+    e.neck.rotation.y = (1 - e.beg) * Math.sin(now * 0.3 + e.seed) * 0.6;
+    e.jawHinge.rotation.x = e.beg * (0.15 + 0.35 * Math.max(Math.sin(now * 11 + e.seed), 0));
+  });
+  // The mate scans the valley, and watches the eaglets being fed
+  const watch = feeding ? -0.9 : Math.sin(now * 0.35) * 0.9;
+  mate.userData.head.rotation.y += (watch - mate.userData.head.rotation.y) * easeFactor(dt, 2);
+  mate.userData.head.rotation.x = feeding ? 0.4 : 0;
+  peepTimer -= dt;
+  if (peepTimer <= 0) {
+    peepTimer = 0.5 + Math.random() * 0.7;
+    if (sound.on && eaglets[0].userData.beg > 0.5) eagletPeeps(clamp(18 / camera.position.distanceTo(nestTree.position), 0.15, 1));
+  }
+}
+
 // A silvery fish: one rides in the eagle's talons, another leaps from the lake now and then
 function makeFish() {
   const fish = new THREE.Group();
@@ -2344,7 +3349,7 @@ bird.add(fish);
 // Splashes: droplets thrown up and rings spreading across the water, reused from a small pool
 const RIPPLE_SECONDS = 2.4;
 const splashMat = new THREE.MeshBasicMaterial({ color: 0xfff1e0 });
-const splashes = Array.from({ length: 4 }, () => ({
+const splashes = Array.from({ length: 6 }, () => ({
   age: Infinity,
   strength: 1,
   droplets: Array.from({ length: 14 }, () => {
@@ -2495,7 +3500,7 @@ function updateFishShadows(dt, now) {
 
 // Sound, all synthesised with Web Audio: wind, rain, thunder, birdsong by day, crickets, frogs and
 // the owl at night, splashes and the eagle's call
-const sound = { ctx: null, on: false, birdTimer: 1, cricketTimer: 1, frogTimer: 3, owlTimer: 4 };
+const sound = { ctx: null, on: false, birdTimer: 1, cricketTimer: 1, frogTimer: 3, owlTimer: 4, loonTimer: 3 };
 function startSound() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const master = ctx.createGain();
@@ -2524,7 +3529,17 @@ function startSound() {
   const rainGain = ctx.createGain();
   rainGain.gain.value = 0;
   loopNoise().connect(rainFilter).connect(rainGain).connect(master);
-  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain });
+  // A soft echo off the far shore, for calls that carry across the water
+  const echo = ctx.createDelay(1);
+  echo.delayTime.value = 0.34;
+  const echoFeedback = ctx.createGain();
+  echoFeedback.gain.value = 0.32;
+  const echoFilter = ctx.createBiquadFilter();
+  echoFilter.type = "lowpass";
+  echoFilter.frequency.value = 1600;
+  echo.connect(echoFilter).connect(echoFeedback).connect(echo);
+  echoFilter.connect(master);
+  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain, echo });
 }
 function tone({ type = "sine", freq, freqEnd, start, duration, gain, pan = 0, filter }) {
   const { ctx } = sound;
@@ -2561,28 +3576,85 @@ function cricketTrill() {
   const pan = randomPan();
   for (let i = 0; i < 6; i++) tone({ freq: 4300, start: start + i * 0.045, duration: 0.03, gain: 0.01, pan });
 }
-function frogCroak() {
+function frogCroak(pan = randomPan(), loudness = 1) {
   const start = sound.ctx.currentTime;
-  const pan = randomPan();
   for (let i = 0; i < 2; i++) {
     const filter = sound.ctx.createBiquadFilter();
     filter.type = "bandpass";
     filter.frequency.value = 450;
     filter.Q.value = 4;
-    tone({ type: "sawtooth", freq: 150, freqEnd: 105, start: start + i * 0.3, duration: 0.2, gain: 0.08, pan, filter });
+    tone({ type: "sawtooth", freq: 150, freqEnd: 105, start: start + i * 0.3, duration: 0.2, gain: 0.08 * loudness, pan, filter });
   }
 }
 // The bald eagle's high, thin "kleek-kik-ik-ik" chatter
-function eagleCall() {
+function eagleCall(loudness = 1) {
   if (!sound.on) return;
   const start = sound.ctx.currentTime;
-  for (let i = 0; i < 5; i++) tone({ freq: 3300 - i * 140, freqEnd: 2700 - i * 120, start: start + i * 0.13, duration: 0.1, gain: 0.035 });
+  for (let i = 0; i < 5; i++) tone({ freq: 3300 - i * 140, freqEnd: 2700 - i * 120, start: start + i * 0.13, duration: 0.1, gain: 0.035 * loudness });
+}
+// The eaglets' thin, insistent begging peeps
+function eagletPeeps(loudness) {
+  const start = sound.ctx.currentTime;
+  const notes = 2 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < notes; i++) tone({ freq: 3600 + Math.random() * 300, freqEnd: 2900, start: start + i * 0.16, duration: 0.09, gain: 0.03 * loudness });
 }
 // The great horned owl's deep "hoo, h'hoo, hoo, hoo"
 function owlHoot(pan) {
   const start = sound.ctx.currentTime;
   [[0, 0.35, 360], [0.55, 0.15, 380], [0.75, 0.3, 370], [1.2, 0.45, 345]].forEach(([at, duration, freq]) =>
     tone({ freq, freqEnd: freq * 0.96, start: start + at, duration, gain: 0.07, pan }));
+}
+// The common loon's wail: a long, rising, quavering "aa-OOO-oo" that echoes across the lake
+function loonWail(pan) {
+  if (!sound.on) return;
+  const { ctx } = sound;
+  const start = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const f = osc.frequency;
+  f.setValueAtTime(620, start);
+  f.linearRampToValueAtTime(1000, start + 0.7);
+  f.setValueAtTime(1000, start + 1.3);
+  f.linearRampToValueAtTime(1240, start + 1.6);
+  f.setValueAtTime(1240, start + 2.6);
+  f.linearRampToValueAtTime(980, start + 3.2);
+  voice(osc, start, 3.4, 0.045, pan, 5, 9);
+}
+// Its tremolo, a rapid laughing quaver, given in alarm and in flight
+function loonTremolo(pan) {
+  if (!sound.on) return;
+  const { ctx } = sound;
+  const start = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.frequency.setValueAtTime(820, start);
+  osc.frequency.linearRampToValueAtTime(980, start + 0.4);
+  osc.frequency.linearRampToValueAtTime(900, start + 1.4);
+  voice(osc, start, 1.5, 0.04, pan, 11, 60);
+}
+// A held, swelling note with vibrato, sent to the echo as well as straight out
+function voice(osc, start, duration, gain, pan, vibratoRate, vibratoDepth) {
+  const { ctx } = sound;
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = vibratoRate;
+  const depth = ctx.createGain();
+  depth.gain.value = vibratoDepth;
+  lfo.connect(depth).connect(osc.frequency);
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, start);
+  envelope.gain.exponentialRampToValueAtTime(gain, start + 0.25);
+  envelope.gain.setValueAtTime(gain, start + duration - 0.5);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  let node = osc.connect(envelope);
+  if (ctx.createStereoPanner) {
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = pan;
+    node = node.connect(panner);
+  }
+  node.connect(sound.master);
+  node.connect(sound.echo);
+  for (const source of [osc, lfo]) {
+    source.start(start);
+    source.stop(start + duration + 0.05);
+  }
 }
 // A crack and a long low rumble, arriving `delay` seconds after the flash
 function thunder(delay, loudness) {
@@ -2633,6 +3705,13 @@ function updateSound(dt, now) {
   sound.cricketTimer -= dt;
   sound.frogTimer -= dt;
   sound.owlTimer -= dt;
+  sound.loonTimer -= dt;
+  // The loon wails from dusk through the night, and now and then at dawn
+  if (sound.loonTimer <= 0) {
+    const calling = sunHeight < 0.02 || (hour < 8 && Math.random() < 0.4);
+    if (calling && loon.visible && loonState.mode !== "fly") loonWail(clamp((loon.position.x - camera.position.x) / 30, -0.8, 0.8));
+    sound.loonTimer = 14 + Math.random() * 18;
+  }
   if (sound.owlTimer <= 0) {
     if (owl.visible) owlHoot(clamp((owl.position.x - camera.position.x) / 40, -0.8, 0.8));
     sound.owlTimer = 6 + Math.random() * 7;
@@ -2712,7 +3791,7 @@ const CHASE_RANGE = 25;
 const CHASE_SECONDS = 10;
 const LEAVE_FACTOR = 1.5; // how much further than its range the eagle must get to forget an animal
 const eagle = {
-  mode: "cruise", time: 0, weight: 0, diveTimer: FIRST_DIVE_SECONDS, caught: false, travelSeconds: 3, prey: null, shelter: false,
+  mode: "cruise", time: 0, weight: 0, diveTimer: FIRST_DIVE_SECONDS, caught: false, travelSeconds: 3, prey: null, shelter: false, roost: ROOSTS.snag,
   metFox: false, metOwl: false,
   catchPoint: new THREE.Vector3(), skim: new THREE.Vector3(), start: new THREE.Vector3(), control: new THREE.Vector3()
 };
@@ -2741,12 +3820,13 @@ function startDive() {
   setEagleMode("dive");
   eagleCall();
 }
-// Fly to the snag along a curve that rises over the shore, from wherever the eagle is now
-function flyToPerch(from, push) {
+// Fly to the snag (or the nest) along a curve that rises over the shore, from wherever the eagle is now
+function flyToPerch(from, push, roost) {
+  eagle.roost = roost;
   eagle.start.copy(from);
-  eagle.control.copy(from).add(PERCH).multiplyScalar(0.5).addScaledVector(push, 4);
-  eagle.control.y = Math.max(from.y, PERCH.y) + 3;
-  eagle.travelSeconds = Math.max(3, from.distanceTo(PERCH) / 6);
+  eagle.control.copy(from).add(roost.point).multiplyScalar(0.5).addScaledVector(push, 4);
+  eagle.control.y = Math.max(from.y, roost.point.y) + 3;
+  eagle.travelSeconds = Math.max(3, from.distanceTo(roost.point) / 6);
   setEagleMode("toPerch");
 }
 function bezier(a, b, c, t, out) {
@@ -2771,7 +3851,7 @@ function updateFlightPath(dt) {
       if (weather.phase === "storm") {
         // Sit the storm out on the snag
         eagle.shelter = true;
-        flyToPerch(cruise, flatHeading.set(heading.x, 0, heading.z).normalize());
+        flyToPerch(cruise, flatHeading.set(heading.x, 0, heading.z).normalize(), ROOSTS.snag);
         break;
       }
       if (!nearCruise(fox, BUZZ_RANGE * LEAVE_FACTOR)) eagle.metFox = false;
@@ -2838,14 +3918,16 @@ function updateFlightPath(dt) {
         if (eagle.prey) hideShadowFish(eagle.prey, 6);
         eagle.prey = null;
       }
-      // Carry the fish to the snag
-      if (u >= 0.6) flyToPerch(special, eagle.skim);
+      // Carry the fish to the snag to eat, or home to the eaglets
+      if (u >= 0.6) flyToPerch(special, eagle.skim, Math.random() < NEST_CHANCE ? ROOSTS.nest : ROOSTS.snag);
       break;
     }
     case "toPerch": {
       const p = Math.min(eagle.time / eagle.travelSeconds, 1);
       eagle.weight = 1;
-      bezier(eagle.start, eagle.control, PERCH, smoothstep(p, 0, 1), special);
+      bezier(eagle.start, eagle.control, eagle.roost.point, smoothstep(p, 0, 1), special);
+      // Its mate calls it in to the nest
+      if (eagle.roost === ROOSTS.nest && p >= 0.6 && (eagle.time - dt) / eagle.travelSeconds < 0.6) eagleCall(0.6);
       // Hard wingbeats climbing away, talons tucked, then swung forward again to land
       pose.glide = p > 0.8 ? 0 : 0.3;
       pose.talons = 1 - smoothstep(p, 0.1, 0.3) + smoothstep(p, 0.75, 0.95);
@@ -2854,7 +3936,7 @@ function updateFlightPath(dt) {
     }
     case "perched": {
       eagle.weight = 1;
-      special.copy(PERCH);
+      special.copy(eagle.roost.point);
       pose.fold = smoothstep(eagle.time, 0, 1.2);
       pose.talons = 1;
       if (eagle.shelter) {
@@ -2877,7 +3959,7 @@ function updateFlightPath(dt) {
     case "takeoff": {
       // Drop off the branch, beat hard and climb away, easing back into the cruise
       const p = Math.min(eagle.time / TAKEOFF_SECONDS, 1);
-      special.copy(PERCH).addScaledVector(perchFacing, 2 * p + 9 * p * p);
+      special.copy(eagle.roost.point).addScaledVector(eagle.roost.launch, 2 * p + 9 * p * p);
       special.y += 3.5 * p - 0.6 * Math.sin(p * Math.PI);
       eagle.weight = 1 - smoothstep(p, 0.3, 1);
       pose.fold = 1 - smoothstep(p, 0, 0.12);
@@ -2939,20 +4021,23 @@ function keepAboveGround(position) {
 }
 // Look around: the camera leaves the eagle to itself and drifts slowly round the lake on a smooth
 // closed curve. It starts at a vantage behind the tent, swings out behind the camp and along the
-// far shore past the deer, turns to the snag, rounds the left end of the lake to the heron in the
-// shallows, glides low across the water and curls back round to the tent. Each stop is where the
-// camera passes, what it looks at there (the deer and heron are tracked as they move) and how
-// fast it drifts through, in metres per second. The path keeps well clear of the trees.
+// far shore past the deer, turns to the snag and up to the eagles' nest, rounds the left end of
+// the lake (past the moose, if he's in), on to the heron in the shallows, glides low across the
+// water and curls back round to the tent. Each stop is where the camera passes, what it looks at
+// there (the animals are tracked as they move) and how fast it drifts through, in metres per
+// second. The path keeps well clear of the trees, and high enough over the water to pass above the
+// canoe.
 const LOOK_AROUND_STOPS = [
   { at: [32.5, 0, -36.5], look: [6, -3.5, -21], pace: 0.8 }, // the vantage behind the tent
   { at: [23, 3, -39], look: [12, -3, -38], pace: 1.6 },
   { at: [16, 0.5, -30.5], look: "deer", pace: 1.1 },
   { at: [4, 0, -31.5], look: "deer", pace: 1.1 },
   { at: [-13, 0.5, -27.5], look: [SNAG.x, groundY + 3.5, SNAG.z], pace: 1.5 },
-  { at: [-22.5, 1, -19], look: [-8, -3, -12], pace: 1.4 },
+  { at: [-18.5, 2.2, -27], look: [NEST.x, NEST_RIM_Y + 0.3, NEST.z], pace: 1.1 },
+  { at: [-22.5, 1, -19], look: "moose", otherwise: [-8, -3, -12], pace: 1.4 },
   { at: [-15, -1.5, -15], look: "heron", pace: 0.9 },
   { at: [-6, -1.8, -19], look: "heron", pace: 1 },
-  { at: [6, -2.4, -22], look: [20, -3.6, -27], pace: 1.6 }, // skimming the lake
+  { at: [6, -1.4, -22], look: [20, -3.6, -27], pace: 1.6 }, // skimming the lake
   { at: [19, -1, -17], look: [TENT.x, groundY + 0.8, TENT.z], pace: 1.6 },
   { at: [31, 1, -25], look: [TENT.x, groundY + 0.8, TENT.z], pace: 1.2 }
 ];
@@ -2988,9 +4073,10 @@ function gazeTowards(point, out) {
   out.pitch = Math.atan2(lookAroundFocus.y, Math.hypot(lookAroundFocus.x, lookAroundFocus.z));
   return out;
 }
-// What a stop looks at, following the deer and the heron as they move
+// What a stop looks at, following the deer, the heron and the moose as they move
 function stopFocus(stop, out) {
   if (stop.look === "heron") return out.copy(heron.position).setY(groundY + 0.9);
+  if (stop.look === "moose") return moose.visible ? out.copy(moose.position).setY(moose.position.y + 1.6) : out.set(...stop.otherwise);
   if (stop.look === "deer") {
     out.set(0, 0, 0);
     for (const deer of herd) out.add(deer.position);
@@ -3052,8 +4138,12 @@ const glideSeconds = (from, to) => clamp(from.distanceTo(to) / VISIT_GLIDE_SPEED
 // clear the trees
 function watchPoint({ animal, anchor, bearing, distance }, out) {
   const y = Math.max(groundY + VISIT_HEIGHT, animal.position.y + 1.5);
-  return out.set(anchor.x + Math.sin(bearing) * distance, y, anchor.z + Math.cos(bearing) * distance);
+  out.set(anchor.x + Math.sin(bearing) * distance, y, anchor.z + Math.cos(bearing) * distance);
+  // The nest pine stands taller than the watching height
+  keepOutOfCircle(out, NEST_PINE_CLEARANCE);
+  return out;
 }
+const NEST_PINE_CLEARANCE = { x: NEST.x, z: NEST.z, radius: 5 };
 // Whether an animal is out, not yet seen this lap and staying out long enough to be worth the
 // trip; if so, its watching spot is lined up on the side the camera would come from
 function worthVisiting(watcher) {
@@ -3262,7 +4352,10 @@ function updateSunShadow() {
   sun.position.copy(shadowFocus).addScaledVector(SUN_DIR, 150);
 }
 
-// Mirror the camera in the lake's surface and render what it sees for the water to sample
+// Mirror the camera in the lake's surface and render what it sees for the water to sample, leaving
+// out anything under the water (wading legs, a dunked head, a canoe's hull). The cut sits just
+// below the meadow, which is a touch lower than the water, so the far shore still reflects.
+const UNDERWATER = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -(groundY - 0.05))];
 function renderReflection() {
   mirrorCamera.position.set(camera.position.x, 2 * LAKE.y - camera.position.y, camera.position.z);
   camera.getWorldDirection(mirrorLook);
@@ -3271,7 +4364,9 @@ function renderReflection() {
   mirrorCamera.updateMatrixWorld();
   mirrorMatrix.copy(MIRROR_BIAS).multiply(mirrorCamera.projectionMatrix).multiply(mirrorCamera.matrixWorldInverse);
   renderer.setRenderTarget(mirrorTarget);
+  renderer.clippingPlanes = UNDERWATER;
   renderer.render(scene, mirrorCamera);
+  renderer.clippingPlanes = [];
   renderer.setRenderTarget(null);
 }
 
@@ -3449,7 +4544,7 @@ function frame() {
   const pose = updateFlightPath(dt);
   velocity.subVectors(current, previous);
   previous.copy(current);
-  if (eagle.mode === "perched") heading.lerp(perchFacing, easeFactor(dt, 3)).normalize();
+  if (eagle.mode === "perched") heading.lerp(eagle.roost.facing, easeFactor(dt, 3)).normalize();
   else if (velocity.lengthSq() > 1e-10) heading.lerp(velocity.normalize(), easeFactor(dt, 6)).normalize();
 
   // Bank into turns, based on how fast the heading swings left or right
@@ -3479,6 +4574,7 @@ function frame() {
   bird.rotateZ(roll);
   bird.rotateX(-0.6 * pose.fold); // sit upright on the branch
 
+  updateNest(dt, elapsed, pose);
   checkHerdAlarm(dt);
   for (const cloud of clouds) {
     cloud.position.x += cloud.userData.speed * dt;
@@ -3495,12 +4591,16 @@ function frame() {
   for (const deer of herd) updateDeer(deer, dt, elapsed);
   updateDucks(dt, elapsed);
   updateLilyPads(dt, elapsed);
+  updateFrogs(dt);
+  updateDragonflies(dt, elapsed);
   updateFishShadows(dt, elapsed);
   updateJumper(dt);
   updateSplashes(dt);
   updateBats(elapsed);
   updateOwl(dt, elapsed);
   updateHeron(dt, elapsed);
+  updateMoose(dt, elapsed);
+  updateLoon(dt, elapsed);
   updateCamp(dt, elapsed);
   const treeWind = swayUniforms.wind.value;
   for (const tree of trees) {
