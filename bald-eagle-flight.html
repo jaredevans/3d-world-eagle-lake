@@ -141,7 +141,7 @@ h1 {
   <h1>Bald Eagle Flight</h1>
   <p class="readout"><strong id="readout">9.0</strong> m from camera</p>
   <p class="readout" id="clock">05:36 · Dawn</p>
-  <p class="hint"><span class="hint-mouse">Drag to look around the eagle, scroll to zoom. Double-click or press R to reset.</span><span class="hint-touch">Drag to look around the eagle. Double-tap to reset.</span></p>
+  <p class="hint"><span class="hint-mouse">Drag to look around the eagle, scroll to zoom. Double-click to reset, or press R for the front of the lake.</span><span class="hint-touch">Drag to look around the eagle. Double-tap to reset.</span></p>
 </div>
 
 <div class="dock">
@@ -7386,6 +7386,13 @@ function resetView() {
   zoom.target = 1;
 }
 canvas.addEventListener("dblclick", resetView);
+// R goes further: out of whichever mode it's in, back to the view from the front of the lake
+function viewFromFront() {
+  setFollow(false);
+  setEagleEye(false);
+  setLookAround(false);
+  resetView();
+}
 // Scrolling up zooms in, down zooms out (a trackpad pinch arrives as a scroll too)
 canvas.addEventListener("wheel", e => {
   e.preventDefault();
@@ -7402,7 +7409,7 @@ addEventListener("keydown", e => {
   else if (key === "e") setEagleEye(!eagleEye);
   else if (key === "l") setLookAround(!lookAround.on);
   else if (key === "m") setSound(!sound.on);
-  else if (key === "r") resetView();
+  else if (key === "r") viewFromFront();
 });
 
 function resize() {

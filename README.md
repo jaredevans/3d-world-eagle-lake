@@ -14,14 +14,15 @@ Open `bald-eagle-flight.html` in a modern browser, either straight from disk or 
 | --- | --- |
 | Drag (mouse or one finger) | Look around the eagle |
 | Mouse wheel (or trackpad pinch) | Zoom in or out |
-| Double-click / double-tap, or `R` | Reset the view and zoom |
+| Double-click / double-tap | Reset the view and zoom |
+| `R` | Back to the view from the front of the lake, leaving Follow, Eagle's-eye or Look around |
 | `1` / `2` / `3` | Camera distance: Close (3.2 m), Away (9 m) or Far away (30 m) |
 | `F` | Follow the eagle on a tour of the whole landscape |
 | `E` | Eagle's-eye view, riding just ahead of the beak |
 | `L` | Look around: leave the eagle and glide slowly round the lake |
 | `M` | Sound on or off (off by default) |
 
-In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer and over the beavers' lodge, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) and the otters' rock to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. Once a lap, if the fox or owl is out, the camera leaves the loop to watch it from a little way off, then glides back to where it left off. It rises above the treetops before it travels. For the fox it zooms in close; for the owl it watches the whole circling loop. The nights are short, so the two take turns to go first. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, the mouse wheel zooms, and `R` or a double-click puts both back.
+In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer and over the beavers' lodge, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) and the otters' rock to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. Once a lap, if the fox or owl is out, the camera leaves the loop to watch it from a little way off, then glides back to where it left off. It rises above the treetops before it travels. For the fox it zooms in close; for the owl it watches the whole circling loop. The nights are short, so the two take turns to go first. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, the mouse wheel zooms, and a double-click puts both back.
 
 The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out.
 
