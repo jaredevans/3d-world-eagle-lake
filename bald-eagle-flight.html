@@ -1379,7 +1379,8 @@ function updateLightning(dt) {
 // Weather: long clear spells, now and then clouding over into light rain or a thunderstorm,
 // with a rainbow as it clears
 const STORM_CHANCE = 0.4;
-const weather = { phase: "clear", timer: 50, overcast: 0, rain: 0, storm: 0, rainbow: 0, flash: 0 };
+// The first clear spell lasts into the first afternoon, so the floatplane's first visit isn't rained off
+const weather = { phase: "clear", timer: 80, overcast: 0, rain: 0, storm: 0, rainbow: 0, flash: 0 };
 const NEXT_WEATHER = { clear: "overcast", overcast: "rain", rain: "clearing", storm: "clearing", clearing: "clear" };
 const WEATHER_SECONDS = {
   clear: () => 70 + Math.random() * 60,
@@ -1904,10 +1905,13 @@ function updateLilyPads(dt, now) {
 }
 
 // Green frogs sitting out on some of the lily pads, bobbing with them. They croak, mostly after
-// dark, puffing out their throats, and leap into the water with a plop when anything comes close,
-// climbing back out a while later
+// dark, puffing out their throats, and every so often hop across to a free pad nearby, which rocks as
+// they land. They leap into the water with a plop when anything comes close, climbing back out a
+// while later.
 const FROG_SCALE = 1.6; // a little larger than life, like the ducks
 const FROG_LEAP_SECONDS = 0.45;
+const FROG_HOP_SECONDS = 0.5;
+const FROG_HOP_REACH = 2.2; // the furthest pad it'll hop to
 const frogSkin = new THREE.MeshStandardMaterial({ color: 0x4f7d34, flatShading: true, roughness: 0.6 });
 const frogBelly = new THREE.MeshStandardMaterial({ color: 0xd9d6a0, flatShading: true, roughness: 0.6 });
 function makeFrog() {
@@ -1936,6 +1940,7 @@ function makeFrog() {
     frog.add(eye, pupil, thigh);
   }
   frog.scale.setScalar(FROG_SCALE);
+  frog.rotation.order = "YXZ"; // pitching nose up and down mid-hop, whichever way it faces
   frog.traverse(o => o.layers.set(NOT_REFLECTED)); // like the pads they sit on
   Object.assign(frog.userData, { throat });
   return frog;
@@ -1946,12 +1951,24 @@ const frogs = [3, 9, 12, 17, 22, 26].map(i => {
   frog.rotation.y = Math.random() * Math.PI * 2;
   scene.add(frog);
   Object.assign(frog.userData, {
-    pad, state: "sit", timer: 0, time: 0, croak: -1, croakTimer: 2 + Math.random() * 10,
+    pad, next: null, state: "sit", timer: 0, time: 0, croak: -1, croakTimer: 2 + Math.random() * 10, hopTimer: 5 + Math.random() * 20,
     from: new THREE.Vector3(), to: new THREE.Vector3()
   });
   return frog;
 });
-const frogPadPoint = (frog, out) => out.set(frog.userData.pad.position.x, frog.userData.pad.position.y + 0.01, frog.userData.pad.position.z);
+const padPoint = (pad, out) => out.set(pad.position.x, pad.position.y + 0.01, pad.position.z);
+const frogPadPoint = (frog, out) => padPoint(frog.userData.pad, out);
+// The nearest pad within a hop that no other frog is on, or heading for
+function freePadNear(frog) {
+  const taken = new Set(frogs.flatMap(other => [other.userData.pad, other.userData.next]));
+  let best = null;
+  let bestGap = FROG_HOP_REACH;
+  for (const pad of lilyPads) {
+    const gap = flatGap(pad.position, frog.position);
+    if (!taken.has(pad) && gap > 0.3 && gap < bestGap && !nearVisitor(pad.position, 0.5)) [best, bestGap] = [pad, gap];
+  }
+  return best;
+}
 function updateFrogs(dt) {
   const night = sunHeight < 0.02;
   for (const frog of frogs) {
@@ -1967,12 +1984,35 @@ function updateFrogs(dt) {
         frog.rotation.y = away;
         Object.assign(f, { state: "leap", time: 0, croak: -1 });
       }
+      // Now and then, off across to another pad
+      f.hopTimer -= dt;
+      if (f.state === "sit" && f.hopTimer <= 0) {
+        f.next = freePadNear(frog);
+        f.hopTimer = f.next ? 12 + Math.random() * 25 : 4;
+        if (f.next) {
+          f.from.copy(frog.position);
+          frog.rotation.y = bearing(frog.position, f.next.position);
+          Object.assign(f, { state: "hop", time: 0 });
+        }
+      }
       // Croak every few seconds after dark, only now and then by day
       f.croakTimer -= dt;
       if (f.croakTimer <= 0) {
         f.croak = 0;
         f.croakTimer = night ? 3 + Math.random() * 7 : 25 + Math.random() * 40;
         if (sound.on) frogCroak(clamp((frog.position.x - camera.position.x) / 25, -0.8, 0.8), 1.4);
+      }
+    } else if (f.state === "hop") {
+      // An arcing hop, landing on the new pad wherever it's bobbed to
+      const p = Math.min(f.time / FROG_HOP_SECONDS, 1);
+      padPoint(f.next, f.to);
+      frog.position.lerpVectors(f.from, f.to, p);
+      frog.position.y += Math.sin(p * Math.PI) * (0.2 + f.from.distanceTo(f.to) * 0.12);
+      frog.rotation.x = -0.6 * Math.cos(p * Math.PI); // nose up on the way up, down to land
+      if (p >= 1) {
+        f.next.userData.bob = Math.max(f.next.userData.bob, 0.7); // the pad rocks under it
+        Object.assign(f, { pad: f.next, next: null, state: "sit" });
+        frog.rotation.x = 0;
       }
     } else if (f.state === "leap") {
       const p = Math.min(f.time / FROG_LEAP_SECONDS, 1);
@@ -4121,10 +4161,11 @@ function updateOsprey(dt, now) {
   }
 }
 
-// A floatplane that drops in now and then on a fine day (always the first afternoon). It drones in
-// low over the trees on the right and touches down on the lake in a long burst of spray, scattering
-// everything on the water, and slows to a stop. It sits a while with its propeller ticking over,
-// swings round, then roars off back the way it came, climbing away over the trees.
+// A floatplane that drops in every other afternoon, starting with the first (rain puts it off to the
+// next afternoon). It comes in low over the trees on the right and buzzes the length of the lake,
+// scattering everything on the water, climbs away into a wide banking circuit round the far side and
+// lines up to land. It touches down in bursts of spray and slows to a stop, sits a while with its
+// propeller ticking over, swings round, then roars off back the way it came, climbing over the trees.
 const PLANE_SCALE = 0.85; // a little small, so it doesn't swamp the lake: about 9.5 m across the wings
 const PLANE_LINE_Z = -17.5;
 const PLANE_TOUCHDOWN_X = 16;
@@ -4132,12 +4173,40 @@ const PLANE_STOP_X = -4;
 const PLANE_LIFTOFF_X = 14;
 const PLANE_WATERLINE = LAKE.y + 0.02;
 const PLANE_RUN_SPEED = 18; // metres per second at touchdown and liftoff
-const PLANE_CHANCE = 0.5;
-const PLANE_HOURS = { from: 12.5, to: 16.5 }; // the afternoon, once the day's plans are made at noon
-const planeApproach = new THREE.CatmullRomCurve3([[150, 34, -45], [80, 14, -24], [36, 1.8, PLANE_LINE_Z], [PLANE_TOUCHDOWN_X, PLANE_WATERLINE + 0.1, PLANE_LINE_Z]]
-  .map(point => new THREE.Vector3(...point)));
-const planeDeparture = new THREE.CatmullRomCurve3([[PLANE_LIFTOFF_X, PLANE_WATERLINE + 0.1, PLANE_LINE_Z], [30, 1.5, PLANE_LINE_Z], [60, 12, -12], [150, 34, 10]]
-  .map(point => new THREE.Vector3(...point)));
+const PLANE_EVERY = 2; // days between visits
+const PLANE_HOURS = { from: 12.4, to: 14 }; // when it sets off: early afternoon, as a visit takes the rest of it
+// Up over the crest of the foothill ahead and to the right of the starting view (from behind it, out of
+// sight), in low over the trees, along the lake a few metres up, round the far side above the treetops and the
+// nest pine, and back in over the trees on the right to land
+const PLANE_HILL = { behind: [120, 8, -300], crest: [85, 28, -215], between: [62, 22, -110] };
+const planeApproach = new THREE.CatmullRomCurve3([
+  PLANE_HILL.behind, PLANE_HILL.crest, PLANE_HILL.between, [70, 12, -22], [36, 4.6, PLANE_LINE_Z], [12, 0.4, PLANE_LINE_Z], [-10, 0.6, PLANE_LINE_Z], [-26, 4.5, -19],
+  [-31, 10, -30], [-18, 13, -39], [5, 13, -42], [32, 12, -38], [52, 10, -24], [40, 4.8, PLANE_LINE_Z],
+  [PLANE_TOUCHDOWN_X, PLANE_WATERLINE + 0.1, PLANE_LINE_Z]
+].map(point => new THREE.Vector3(...point)));
+planeApproach.arcLengthDivisions = 2000;
+const PLANE_APPROACH_LENGTH = planeApproach.getLength();
+// How far along a path a point comes
+function alongNearest(curve, [x, y, z]) {
+  const probe = new THREE.Vector3();
+  let best = 0;
+  for (let i = 0, gap = Infinity; i <= 1000; i++) {
+    const d = curve.getPointAt(i / 1000, probe).distanceToSquared(new THREE.Vector3(x, y, z));
+    if (d < gap) [gap, best] = [d, i / 1000];
+  }
+  return best;
+}
+// Where it turns onto its final run in to land
+const PLANE_FINAL = alongNearest(planeApproach, [52, 10, -24]);
+// Out over the open country between the hills and the lake it flies fast, so the visit doesn't drag on
+const PLANE_CRUISE_SPEED = 55;
+const PLANE_CIRCUIT_SPEED = 30;
+// Climbing away over the trees on the right, then back over the foothill's crest and down out of sight
+// behind it
+const planeDeparture = new THREE.CatmullRomCurve3([[PLANE_LIFTOFF_X, PLANE_WATERLINE + 0.1, PLANE_LINE_Z], [30, 1.5, PLANE_LINE_Z], [60, 12, -16],
+  PLANE_HILL.between, PLANE_HILL.crest, PLANE_HILL.behind].map(point => new THREE.Vector3(...point)));
+planeDeparture.arcLengthDivisions = 1000;
+const PLANE_DEPARTURE_LENGTH = planeDeparture.getLength();
 function makeFloatplane() {
   const plane = new THREE.Group();
   const paint = color => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.5, metalness: 0.2 });
@@ -4201,8 +4270,20 @@ const planeWakes = [1, -1].map(side => {
   scene.add(wake);
   return { wake, side };
 });
-const planeState = { mode: "away", time: 0, seconds: 1, today: false, day: -1, hour: 12, along: 0, speed: 0, rpm: 0, throttle: 0, sprayTimer: 0, heading: -Math.PI / 2 };
+const planeState = { mode: "away", time: 0, seconds: 1, nextDay: 1, hour: 12.4, along: 0, speed: 0, rpm: 0, throttle: 0, bank: 0, buzzed: false, sprayTimer: 0, heading: -Math.PI / 2 };
 const planeOnLake = () => ["landing", "idle", "turn", "takeoff"].includes(planeState.mode);
+// Whether it's in view: not while it's still behind the foothill, or has dropped back behind it
+const PLANE_SIGHTED = alongNearest(planeApproach, PLANE_HILL.crest);
+const PLANE_LOST = alongNearest(planeDeparture, PLANE_HILL.crest);
+const planeInSight = () => floatplane.visible && !(planeState.mode === "approach" && planeState.along < PLANE_SIGHTED) && !(planeState.mode === "climb" && planeState.along > PLANE_LOST);
+// The lane along the lake where it flies low: buzzing it, landing and taking off. The Look around camera
+// keeps high above it while the plane's about (from a little before it comes until it's gone).
+const PLANE_LANE = { halfWidth: 7, from: -30, to: 34 };
+const PLANE_LANE_SAFE_Y = 11;
+const planeLaneGap = ({ x, z }) => Math.hypot(Math.max(PLANE_LANE.from - x, x - PLANE_LANE.to, 0), Math.max(Math.abs(z - PLANE_LINE_Z) - PLANE_LANE.halfWidth, 0));
+const planeAbout = () => planeState.mode !== "away" || (planeDue() && hour >= planeState.hour - 0.4 && hour < PLANE_HOURS.to);
+// Whether it's coming this afternoon (the day count goes up at noon)
+const planeDue = () => day + (hour < 12 ? 1 : 0) >= planeState.nextDay;
 lakeVisitors.push({ object: floatplane, reach: 5, afloat: planeOnLake });
 const planeTangent = new THREE.Vector3();
 const planeAhead = new THREE.Vector3();
@@ -4237,24 +4318,39 @@ function updateFloatplane(dt, now) {
   if (p.mode === "away") {
     floatplane.visible = false;
     const quiet = canoeTrip.mode === "beached" && !["toRun", "run", "fly", "skid"].includes(loonState.mode) && eagle.mode !== "dive";
-    if (p.today && p.day !== day && hour >= p.hour && hour < PLANE_HOURS.to && weather.phase === "clear" && weather.timer > 30 && quiet) {
-      p.day = day;
+    // Cloud doesn't stop it, only rain
+    const dry = weather.phase !== "rain" && weather.phase !== "storm" && weather.rain < 0.1;
+    if (day >= p.nextDay && hour >= p.hour && hour < PLANE_HOURS.to && dry && quiet) {
+      p.nextDay = day + PLANE_EVERY;
       floatplane.visible = true;
-      Object.assign(p, { along: 0, speed: 26 });
+      Object.assign(p, { along: 0, speed: PLANE_CRUISE_SPEED, bank: 0, buzzed: false });
       startPlane("approach", Infinity);
     }
     for (const { wake } of planeWakes) wake.visible = false;
     return;
   }
   if (p.mode === "approach") {
-    // Gliding down over the trees, slowing for the touchdown
-    p.speed += (PLANE_RUN_SPEED - p.speed) * easeFactor(dt, 0.5);
-    p.along = Math.min(p.along + (p.speed * dt) / planeApproach.getLength(), 1);
+    // A fast, roaring pass low along the lake, an easier circuit round, then slowing for the touchdown
+    const final = p.along > PLANE_FINAL;
+    const inbound = p.along < 0.5 && floatplane.position.x > 45;
+    p.speed += ((final ? PLANE_RUN_SPEED : inbound ? PLANE_CRUISE_SPEED : PLANE_CIRCUIT_SPEED) - p.speed) * easeFactor(dt, final ? 1 : 0.5);
+    p.along = Math.min(p.along + (p.speed * dt) / PLANE_APPROACH_LENGTH, 1);
     planeApproach.getPointAt(p.along, floatplane.position);
     planeApproach.getTangentAt(p.along, planeTangent);
+    // Banking into the turns of the circuit
+    planeApproach.getTangentAt(Math.min(p.along + 0.004, 1), planeAhead);
+    const turnRate = turnTowards(Math.atan2(planeTangent.x, planeTangent.z), Math.atan2(planeAhead.x, planeAhead.z)) / Math.max((0.004 * PLANE_APPROACH_LENGTH) / p.speed, 1e-3);
+    p.bank += (clamp(-turnRate * 0.9, -0.7, 0.7) - p.bank) * easeFactor(dt, 2);
     floatplane.lookAt(planeAhead.copy(floatplane.position).add(planeTangent));
-    floatplane.rotateX(-0.08 * smoothstep(p.along, 0.7, 1)); // nose up for the flare
-    throttle = 0.45;
+    floatplane.rotateZ(p.bank);
+    floatplane.rotateX(-0.08 * smoothstep(p.along, 0.95, 1)); // nose up for the flare
+    const over = floatplane.position.x < 14 && floatplane.position.y < 2 && p.along < 0.5;
+    throttle = final ? 0.45 : over ? 1 : 0.75;
+    // Everything on the water dives for cover as it roars over
+    if (over && !p.buzzed) {
+      p.buzzed = true;
+      startleLake(floatplane.position);
+    }
     if (p.along >= 1) {
       startPlane("landing", PLANE_RUN_SPEED / ((PLANE_RUN_SPEED * PLANE_RUN_SPEED) / (2 * (PLANE_TOUCHDOWN_X - PLANE_STOP_X))));
       p.heading = -Math.PI / 2;
@@ -4279,7 +4375,7 @@ function updateFloatplane(dt, now) {
       for (const side of [1, -1]) splash(floatplane.localToWorld(floatTail.set(side * 1.25, 0, -1)), 0.35 + 0.5 * (p.speed / PLANE_RUN_SPEED));
     }
     if (t >= 1) {
-      if (p.mode === "landing") startPlane("idle", 6 + Math.random() * 3);
+      if (p.mode === "landing") startPlane("idle", 3.5 + Math.random() * 1.5);
       else {
         Object.assign(p, { along: 0, speed: PLANE_RUN_SPEED });
         startPlane("climb", Infinity);
@@ -4289,7 +4385,7 @@ function updateFloatplane(dt, now) {
     floatplane.position.y = PLANE_WATERLINE + Math.sin(now * 1.3) * 0.02;
     floatplane.rotation.set(0, p.heading, Math.sin(now * 0.9) * 0.015);
     throttle = 0.05;
-    if (p.time >= p.seconds) startPlane("turn", 7);
+    if (p.time >= p.seconds) startPlane("turn", 5);
   } else if (p.mode === "turn") {
     // Swinging round on the water to face back the way it came
     const t = smootherstep(p.time / p.seconds, 0, 1);
@@ -4303,8 +4399,8 @@ function updateFloatplane(dt, now) {
       startPlane("takeoff", Math.sqrt((2 * (PLANE_LIFTOFF_X - PLANE_STOP_X)) / ((PLANE_RUN_SPEED * PLANE_RUN_SPEED) / (2 * (PLANE_LIFTOFF_X - PLANE_STOP_X)))));
     }
   } else if (p.mode === "climb") {
-    p.speed += (26 - p.speed) * easeFactor(dt, 0.5);
-    p.along = Math.min(p.along + (p.speed * dt) / planeDeparture.getLength(), 1);
+    p.speed += ((floatplane.position.x > 40 ? PLANE_CRUISE_SPEED : PLANE_CIRCUIT_SPEED) - p.speed) * easeFactor(dt, 1);
+    p.along = Math.min(p.along + (p.speed * dt) / PLANE_DEPARTURE_LENGTH, 1);
     planeDeparture.getPointAt(p.along, floatplane.position);
     planeDeparture.getTangentAt(p.along, planeTangent);
     floatplane.lookAt(planeAhead.copy(floatplane.position).add(planeTangent));
@@ -4689,7 +4785,8 @@ function updateCanoe(dt, now, night) {
   }
   const states = campers.map(camper => camper.userData.state);
   if (t.mode === "beached") {
-    const fine = weather.phase === "clear" && weather.timer > 40 && planeState.mode === "away";
+    // Not on the floatplane's days, when the lake will be busy
+    const fine = weather.phase === "clear" && weather.timer > 40 && planeState.mode === "away" && !planeDue();
     const free = states.every(state => state !== "inTent" && state !== "toTent");
     if (t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free) {
       t.mode = "boarding";
@@ -6725,7 +6822,7 @@ const LOOK_AROUND_MAX_TURN = 0.4;    // radians per second the gaze ever turns, 
 const LOOK_AROUND_BANK = 0.35;       // lean into the turns, per radian per second of turn
 const LOOK_AROUND_MAX_BANK = 0.07;
 const lookAround = {
-  on: false, progress: 0, weight: 0, u: 0, fresh: false, yaw: 0, pitch: 0, bank: 0, fov: CAMERA_FOV, lift: 0,
+  on: false, progress: 0, weight: 0, u: 0, fresh: false, yaw: 0, pitch: 0, bank: 0, fov: CAMERA_FOV, lift: 0, planeWatch: 0, closeness: 0,
   dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0,
   position: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0),
   turn: new THREE.Matrix4(), facing: new THREE.Quaternion()
@@ -6741,6 +6838,8 @@ const gazeTo = { yaw: 0, pitch: 0 };
 const legGazeFrom = { yaw: 0, pitch: 0 };
 const legGazeTo = { yaw: 0, pitch: 0 };
 const gaze = { yaw: 0, pitch: 0 };
+const planeGaze = { yaw: 0, pitch: 0 };
+const PLANE_WATCH_RANGE = 160; // metres off it starts watching the floatplane
 // The angles from the camera to a point
 function gazeTowards(point, out) {
   lookAroundFocus.subVectors(point, lookAround.position);
@@ -6931,8 +7030,9 @@ function updateLookAround(dt) {
   // Drift along at the pace of the stops either side, picking up speed as the camera arrives
   const along = stopsAlong(lookAround.u);
   const stop = Math.floor(along);
+  // (slowing to linger while it watches the floatplane)
   const pace = lerp(LOOK_AROUND_STOPS[stop].pace, LOOK_AROUND_STOPS[(stop + 1) % n].pace, smoothstep(along - stop, 0, 1))
-    * lookAround.weight * pathPace();
+    * lookAround.weight * pathPace() * (1 - 0.6 * lookAround.planeWatch);
   const lastU = lookAround.u;
   lookAround.u = (lookAround.u + (pace * dt) / LOOK_AROUND_LENGTH) % 1;
   // A new lap: the fox and owl can be visited again
@@ -6948,21 +7048,37 @@ function updateLookAround(dt) {
   lookAround.bank += (bank - lookAround.bank) * easeFactor(dt, 1);
 
   // Let the gaze settle unhurriedly on whatever it's turning towards
-  const { yaw, pitch } = updateVisit(dt);
-  // Rising gently up over the floatplane if it's in the way
-  const planeGap = floatplane.visible ? Math.hypot(lookAround.position.x - floatplane.position.x, lookAround.position.z - floatplane.position.z) : Infinity;
-  const clearPlane = (1 - smoothstep(planeGap, 7, 13)) * Math.max(floatplane.position.y + 4 - lookAround.position.y, 0);
-  lookAround.lift += (clearPlane - lookAround.lift) * easeFactor(dt, 1.5);
+  const gazeOnTour = updateVisit(dt);
+  // Keeping clear of the floatplane: while it's about, the camera rises high over the lane along the
+  // lake that it buzzes, lands and takes off in (starting a little before it gets there), and over the
+  // plane itself if it's on the water close by
+  const corridor = 1 - smoothstep(planeLaneGap(lookAround.position), 0, 8);
+  let clearPlane = planeAbout() ? corridor * Math.max(PLANE_LANE_SAFE_Y - lookAround.position.y, 0) : 0;
+  if (planeOnLake()) {
+    const planeGap = Math.hypot(lookAround.position.x - floatplane.position.x, lookAround.position.z - floatplane.position.z);
+    clearPlane = Math.max(clearPlane, (1 - smoothstep(planeGap, 7, 13)) * Math.max(floatplane.position.y + 4 - lookAround.position.y, 0));
+  }
+  lookAround.lift += (clearPlane - lookAround.lift) * easeFactor(dt, 1.2);
   lookAround.position.y += lookAround.lift;
+  // Turning to watch the floatplane once it's over the hill and coming close, all through its visit,
+  // and back to the tour when it's gone
+  const watchPlane = planeInSight() && floatplane.position.distanceTo(lookAround.position) < PLANE_WATCH_RANGE;
+  lookAround.planeWatch += ((watchPlane ? 1 : 0) - lookAround.planeWatch) * easeFactor(dt, 0.8);
+  gazeTowards(floatplane.position, planeGaze);
+  const yaw = gazeOnTour.yaw + turnTowards(gazeOnTour.yaw, planeGaze.yaw) * lookAround.planeWatch;
+  const pitch = lerp(gazeOnTour.pitch, planeGaze.pitch, lookAround.planeWatch);
   if (lookAround.fresh) {
     lookAround.fresh = false;
     lookAround.yaw = yaw;
     lookAround.pitch = pitch;
   }
-  // Zoomed in, every turn looks bigger, so it turns slower to match
-  const maxTurn = (LOOK_AROUND_MAX_TURN * dt * lookAround.fov * zoom.current) / CAMERA_FOV;
-  lookAround.yaw += clamp(turnTowards(lookAround.yaw, yaw) * easeFactor(dt, LOOK_AROUND_TURN_RATE), -maxTurn, maxTurn);
-  lookAround.pitch += clamp((pitch - lookAround.pitch) * easeFactor(dt, LOOK_AROUND_TURN_RATE), -maxTurn, maxTurn);
+  // Zoomed in, every turn looks bigger, so it turns slower to match; following the floatplane, it can
+  // turn quicker to keep up
+  const watching = lookAround.planeWatch;
+  const maxTurn = (LOOK_AROUND_MAX_TURN * dt * lookAround.fov * zoom.current * (1 + 5 * watching)) / CAMERA_FOV;
+  const turnRate = lerp(LOOK_AROUND_TURN_RATE, 4, watching);
+  lookAround.yaw += clamp(turnTowards(lookAround.yaw, yaw) * easeFactor(dt, turnRate), -maxTurn, maxTurn);
+  lookAround.pitch += clamp((pitch - lookAround.pitch) * easeFactor(dt, turnRate), -maxTurn, maxTurn);
   // Any drag turns the head away from the subject; resetting turns it back just as smoothly
   lookAround.offsetYaw += (lookAround.dragYaw - lookAround.offsetYaw) * easeFactor(dt, 4);
   lookAround.offsetPitch += (lookAround.dragPitch - lookAround.offsetPitch) * easeFactor(dt, 4);
@@ -6971,7 +7087,10 @@ function updateLookAround(dt) {
   lookAroundDirection.set(Math.sin(viewYaw) * Math.cos(viewPitch), Math.sin(viewPitch), Math.cos(viewYaw) * Math.cos(viewPitch));
   lookAround.look.copy(lookAround.position).addScaledVector(lookAroundDirection, 20);
   lookAround.up.copy(WORLD_UP).applyAxisAngle(lookAroundDirection, lookAround.bank);
-  lookAround.fov = visitFov();
+  // A wider view while the floatplane's close and quick, to keep it in frame
+  const planeClose = 1 - smoothstep(floatplane.position.distanceTo(lookAround.position), 25, 60);
+  lookAround.closeness += (planeClose * watching - lookAround.closeness) * easeFactor(dt, 1.5);
+  lookAround.fov = visitFov() * (1 + 0.3 * lookAround.closeness);
 }
 
 function updateCamera(dt) {
@@ -7231,8 +7350,7 @@ function frame() {
     showerTonight = Math.random() < METEOR_SHOWER_CHANCE;
     raccoonState.tonight = Math.random() < RACCOON_CHANCE;
     // The floatplane, some afternoons (always the first)
-    planeState.today = day === 1 || Math.random() < PLANE_CHANCE;
-    planeState.hour = lerp(PLANE_HOURS.from, PLANE_HOURS.to - 1, Math.random());
+    planeState.hour = lerp(PLANE_HOURS.from, 13, Math.random());
     wolves.tonight = Math.random() < WOLF_CHANCE;
   }
   if (lastHour < SUNSET && hour >= SUNSET) nightsSeen++;
