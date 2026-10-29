@@ -88,12 +88,14 @@ h1 {
   left: 50%;
   bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
 }
-.toggles { display: flex; gap: 8px; }
+.toggles { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .toggle,
 .controls {
   background: var(--glass);
@@ -146,6 +148,7 @@ h1 {
   <div class="toggles">
     <button type="button" id="btn-follow" class="toggle" aria-pressed="false">Follow eagle<kbd>F</kbd></button>
     <button type="button" id="btn-eye" class="toggle" aria-pressed="false">Eagle’s-eye<kbd>E</kbd></button>
+    <button type="button" id="btn-look" class="toggle" aria-pressed="false">Look around<kbd>L</kbd></button>
     <button type="button" id="btn-sound" class="toggle" aria-pressed="false">Sound<kbd>M</kbd></button>
   </div>
   <div class="controls" role="group" aria-label="Distance between the eagle and the camera">
@@ -168,7 +171,7 @@ const NOT_REFLECTED = 1;
 const MOON_START_PHASE = 2.4;
 const LUNAR_NIGHTS = 8; // a full cycle of phases takes this many days
 const motionScale = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0.5 : 1;
-const { smoothstep, lerp, clamp } = THREE.MathUtils;
+const { smoothstep, smootherstep, lerp, clamp } = THREE.MathUtils;
 // Fraction of the remaining gap to close this frame, for frame-rate independent easing
 const easeFactor = (dt, rate) => 1 - Math.exp(-dt * rate);
 const turnTowards = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
@@ -199,7 +202,8 @@ renderer.shadowMap.autoUpdate = false;
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0xe39a72, 45, 420);
 
-const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 1200);
+const CAMERA_FOV = 55;
+const camera = new THREE.PerspectiveCamera(CAMERA_FOV, 1, 0.05, 1200);
 camera.layers.enable(NOT_REFLECTED);
 const HOME_POSITION = new THREE.Vector3(0, 0, 0);
 const HOME_TARGET = new THREE.Vector3(0, 0.3, -10);
@@ -1103,11 +1107,32 @@ function skyDirection(arc, height, out) {
   return out.set(Math.sin(azimuth) * Math.cos(elevation), Math.sin(elevation), -Math.cos(azimuth) * Math.cos(elevation));
 }
 
+// Where the sun is at an hour: half a turn over the day, then the other half under the night
+const isDaylight = time => time >= SUNRISE && time <= SUNSET;
+function sunArc(time) {
+  return isDaylight(time)
+    ? ((time - SUNRISE) / (SUNSET - SUNRISE)) * Math.PI
+    : Math.PI + (((time - SUNSET + 24) % 24) / (24 - SUNSET + SUNRISE)) * Math.PI;
+}
+// Seconds of animation until the clock next reads `target`, allowing for the faster night
+function secondsUntil(target) {
+  let time = hour;
+  let seconds = 0;
+  const goal = target >= hour ? target : target + 24;
+  while (time < goal) {
+    const clock = time % 24;
+    const night = clock < 5 || clock >= 21;
+    const edge = time - clock + (clock < 5 ? 5 : clock < 21 ? 21 : 29);
+    const until = Math.min(edge, goal);
+    seconds += (until - time) / (night ? NIGHT_HOURS_PER_SECOND : DAY_HOURS_PER_SECOND);
+    time = until;
+  }
+  return seconds;
+}
+
 function updateDayCycle() {
-  const daylight = hour >= SUNRISE && hour <= SUNSET;
-  const arc = daylight
-    ? ((hour - SUNRISE) / (SUNSET - SUNRISE)) * Math.PI
-    : Math.PI + (((hour - SUNSET + 24) % 24) / (24 - SUNSET + SUNRISE)) * Math.PI;
+  const daylight = isDaylight(hour);
+  const arc = sunArc(hour);
   skyDirection(arc, daylight ? NOON_ELEVATION : MIDNIGHT_DEPTH, SUN_DIR);
   // The moon follows the same arc half a day later, so it crosses the front of the sky at night
   skyDirection(arc + Math.PI, MOON_PEAK, MOON_DIR);
@@ -1526,6 +1551,7 @@ function updateBats(now) {
 
 // A red fox trotting a loop behind the deer meadow from dusk to dawn, stopping now and then to sniff
 const FOX_ROUTE = { x: 8, z: -54, rx: 34, rz: 12 };
+const FOX_HOURS = { out: 18.5, home: 7.5 };
 const FOX_TROT_SPEED = 1.6;
 const FOX_RUN_SPEED = 5.5;
 const FOX_WARY_RADIUS = 16;
@@ -1583,7 +1609,7 @@ castShadows(fox);
 scene.add(fox);
 const foxState = { angle: Math.PI * 1.2, sniff: 0, nextSniff: 6, stride: 0, dir: 1, scared: 0, speed: FOX_TROT_SPEED, gait: 0 };
 function updateFox(dt, now) {
-  fox.visible = hour >= 18.5 || hour < 7.5;
+  fox.visible = hour >= FOX_HOURS.out || hour < FOX_HOURS.home;
   if (!fox.visible) return;
   // Go round the oval at a steady ground speed, either way round
   const dx = -Math.sin(foxState.angle) * FOX_ROUTE.rx * foxState.dir;
@@ -1659,6 +1685,17 @@ const owl = makeOwl();
 owl.visible = false;
 castShadows(owl);
 scene.add(owl);
+const OWL_OUT_SUN_HEIGHT = -0.08; // it flies while the sun is at least this far below the horizon
+// The hours it comes out at dusk and heads back to the treeline at dawn
+const OWL_HOURS = (() => {
+  const probe = new THREE.Vector3();
+  const dark = time => skyDirection(sunArc(time), MIDNIGHT_DEPTH, probe).y < OWL_OUT_SUN_HEIGHT;
+  let out = SUNSET;
+  while (!dark(out)) out += 0.01;
+  let home = 0;
+  while (dark(home)) home += 0.01;
+  return { out, home };
+})();
 const OWL_GLIDE_RATE = 0.18; // radians of its circle per second
 const OWL_FLEE_RATE = 0.42;
 const OWL_ROAM_CHANCE = 0.75; // share of nights it goes looking for the eagle
@@ -1671,7 +1708,7 @@ function owlRoutePoint(around, out) {
 const owlLast = new THREE.Vector3();
 const owlTarget = new THREE.Vector3();
 function updateOwl(dt, now) {
-  const out = sunHeight < -0.08;
+  const out = sunHeight < OWL_OUT_SUN_HEIGHT;
   if (out && !owl.visible) {
     // Each dusk it leaves the treeline, and most nights it sets off towards the eagle
     owlState.roaming = Math.random() < OWL_ROAM_CHANCE;
@@ -2900,6 +2937,273 @@ function keepAboveGround(position) {
   position.y = Math.max(position.y, (insideLake(position.x, position.z, 0) ? LAKE.y : groundY) + 0.8);
   return position;
 }
+// Look around: the camera leaves the eagle to itself and drifts slowly round the lake on a smooth
+// closed curve. It starts at a vantage behind the tent, swings out behind the camp and along the
+// far shore past the deer, turns to the snag, rounds the left end of the lake to the heron in the
+// shallows, glides low across the water and curls back round to the tent. Each stop is where the
+// camera passes, what it looks at there (the deer and heron are tracked as they move) and how
+// fast it drifts through, in metres per second. The path keeps well clear of the trees.
+const LOOK_AROUND_STOPS = [
+  { at: [32.5, 0, -36.5], look: [6, -3.5, -21], pace: 0.8 }, // the vantage behind the tent
+  { at: [23, 3, -39], look: [12, -3, -38], pace: 1.6 },
+  { at: [16, 0.5, -30.5], look: "deer", pace: 1.1 },
+  { at: [4, 0, -31.5], look: "deer", pace: 1.1 },
+  { at: [-13, 0.5, -27.5], look: [SNAG.x, groundY + 3.5, SNAG.z], pace: 1.5 },
+  { at: [-22.5, 1, -19], look: [-8, -3, -12], pace: 1.4 },
+  { at: [-15, -1.5, -15], look: "heron", pace: 0.9 },
+  { at: [-6, -1.8, -19], look: "heron", pace: 1 },
+  { at: [6, -2.4, -22], look: [20, -3.6, -27], pace: 1.6 }, // skimming the lake
+  { at: [19, -1, -17], look: [TENT.x, groundY + 0.8, TENT.z], pace: 1.6 },
+  { at: [31, 1, -25], look: [TENT.x, groundY + 0.8, TENT.z], pace: 1.2 }
+];
+const lookAroundPath = new THREE.CatmullRomCurve3(LOOK_AROUND_STOPS.map(stop => new THREE.Vector3(...stop.at)), true, "catmullrom", 0.5);
+lookAroundPath.arcLengthDivisions = 4000; // fine enough for an even pace along the curve
+const LOOK_AROUND_LENGTH = lookAroundPath.getLength();
+const LOOK_AROUND_BLEND_SECONDS = 10; // gliding over from the eagle view, or back to it
+const LOOK_AROUND_TURN_RATE = 1.5;   // how gently the gaze settles on what it turns towards
+const LOOK_AROUND_MAX_TURN = 0.4;    // radians per second the gaze ever turns, even passing right over what it's watching
+const LOOK_AROUND_BANK = 0.35;       // lean into the turns, per radian per second of turn
+const LOOK_AROUND_MAX_BANK = 0.07;
+const lookAround = {
+  on: false, progress: 0, weight: 0, u: 0, fresh: false, yaw: 0, pitch: 0, bank: 0, fov: CAMERA_FOV,
+  dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0,
+  position: new THREE.Vector3(), look: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0),
+  turn: new THREE.Matrix4(), facing: new THREE.Quaternion()
+};
+const lookAroundFocus = new THREE.Vector3();
+const lookAroundDirection = new THREE.Vector3();
+const pathPosition = new THREE.Vector3();
+const pathTangent = new THREE.Vector3();
+const pathTangentAhead = new THREE.Vector3();
+const stopFocusPoint = new THREE.Vector3();
+const gazeFrom = { yaw: 0, pitch: 0 };
+const gazeTo = { yaw: 0, pitch: 0 };
+const legGazeFrom = { yaw: 0, pitch: 0 };
+const legGazeTo = { yaw: 0, pitch: 0 };
+const gaze = { yaw: 0, pitch: 0 };
+// The angles from the camera to a point
+function gazeTowards(point, out) {
+  lookAroundFocus.subVectors(point, lookAround.position);
+  out.yaw = Math.atan2(lookAroundFocus.x, lookAroundFocus.z);
+  out.pitch = Math.atan2(lookAroundFocus.y, Math.hypot(lookAroundFocus.x, lookAroundFocus.z));
+  return out;
+}
+// What a stop looks at, following the deer and the heron as they move
+function stopFocus(stop, out) {
+  if (stop.look === "heron") return out.copy(heron.position).setY(groundY + 0.9);
+  if (stop.look === "deer") {
+    out.set(0, 0, 0);
+    for (const deer of herd) out.add(deer.position);
+    return out.divideScalar(herd.length).setY(groundY + 0.8);
+  }
+  return out.set(...stop.look);
+}
+// How far along the path a fraction of its length is, counted in stops
+const stopsAlong = u => lookAroundPath.getUtoTmapping(u) * LOOK_AROUND_STOPS.length;
+// The path's own gaze, turning from one stop's subject to the next
+function pathGaze(out) {
+  const n = LOOK_AROUND_STOPS.length;
+  const along = stopsAlong(lookAround.u);
+  const stop = Math.floor(along);
+  const s = smoothstep(along - stop, 0, 1);
+  gazeTowards(stopFocus(LOOK_AROUND_STOPS[stop], stopFocusPoint), gazeFrom);
+  gazeTowards(stopFocus(LOOK_AROUND_STOPS[(stop + 1) % n], stopFocusPoint), gazeTo);
+  out.yaw = gazeFrom.yaw + turnTowards(gazeFrom.yaw, gazeTo.yaw) * s;
+  out.pitch = lerp(gazeFrom.pitch, gazeTo.pitch, s);
+  return out;
+}
+
+// Visits: once a lap, if the fox or the owl is out, the camera leaves the path to watch it from
+// a little way off, drifting slowly round it, then glides back to where it left off. On the way
+// out it rises before it travels and on the way back it travels before it comes down, so it
+// always crosses the land above the treetops.
+const VISIT_HEIGHT = 9;        // metres above the ground while watching
+const VISIT_WATCH_SECONDS = 16;
+const VISIT_MIN_WATCH = 4;     // the shortest stay worth the trip
+const VISIT_LEAVE_SECONDS = 3; // head off this long before the animal turns in for the night or day
+const VISIT_DRIFT = 0.04;      // radians per second it circles the animal while watching
+const VISIT_GLIDE_SPEED = 2.2; // average metres per second on the way there and back
+const VISIT_MAX_SPEED = 3;     // metres per second the watching spot moves, however fast the animal goes
+const VISIT_WAIT_SECONDS = 12; // how long it will hold on for the animal it didn't see last time
+const watchers = {
+  // The fox up close, zoomed right in like a telephoto lens
+  fox: {
+    animal: fox, hours: FOX_HOURS, anchor: fox.position, distance: 14, fov: 26,
+    focus: out => out.copy(fox.position).setY(groundY + 0.4)
+  },
+  // The owl roams and circles too quickly to keep up with, so the camera watches its whole loop
+  // from just outside it, gazing between the loop's centre and the bird
+  owl: {
+    animal: owl, hours: OWL_HOURS, anchor: owlState.centre, distance: OWL_ROUTE.rx + 12, fov: 42,
+    focus: out => out.set(owlState.centre.x, owl.position.y, owlState.centre.z).lerp(owl.position, 0.6)
+  }
+};
+for (const watcher of Object.values(watchers)) {
+  Object.assign(watcher, { bearing: 0, visited: false, view: new THREE.Vector3(), target: new THREE.Vector3() });
+}
+// A leg goes from the path or a watching spot (`from`) to another (`to`); watching, both are the animal
+const visit = { mode: "none", from: "path", to: "path", progress: 0, time: 0, rising: false, last: null };
+const visitFocus = new THREE.Vector3();
+const visitStep = new THREE.Vector3();
+const secondsOut = watcher => (watcher.animal.visible ? secondsUntil(watcher.hours.home) : 0);
+const legEnd = key => (key === "path" ? pathPosition : watchers[key].view);
+const glideSeconds = (from, to) => clamp(from.distanceTo(to) / VISIT_GLIDE_SPEED, 6, 16);
+// The spot to watch from, on the `bearing` side of the animal (or its loop) and high enough to
+// clear the trees
+function watchPoint({ animal, anchor, bearing, distance }, out) {
+  const y = Math.max(groundY + VISIT_HEIGHT, animal.position.y + 1.5);
+  return out.set(anchor.x + Math.sin(bearing) * distance, y, anchor.z + Math.cos(bearing) * distance);
+}
+// Whether an animal is out, not yet seen this lap and staying out long enough to be worth the
+// trip; if so, its watching spot is lined up on the side the camera would come from
+function worthVisiting(watcher) {
+  if (watcher.visited || !watcher.animal.visible) return false;
+  const { anchor } = watcher;
+  watcher.bearing = Math.atan2(lookAround.position.x - anchor.x, lookAround.position.z - anchor.z);
+  const seconds = glideSeconds(lookAround.position, watchPoint(watcher, watcher.target));
+  return secondsOut(watcher) >= seconds + VISIT_MIN_WATCH + VISIT_LEAVE_SECONDS;
+}
+function startLeg(from, to) {
+  Object.assign(visit, { mode: "glide", from, to, progress: 0, rising: legEnd(to).y > legEnd(from).y });
+}
+// Off to the next animal worth watching, or else back to the path. The nights are short, so the
+// fox and owl take turns to come first: the one not seen last time, then whichever turns in
+// soonest. In the evening the camera holds on for the owl if it's its turn and it's nearly out.
+function nextLeg() {
+  const from = visit.mode === "none" ? "path" : visit.to;
+  const order = Object.entries(watchers).sort(([, a], [, b]) => (a === visit.last) - (b === visit.last) || secondsOut(a) - secondsOut(b));
+  const [, turn] = order[0];
+  if (from === "path" && !turn.visited && !turn.animal.visible && secondsUntil(turn.hours.out) < VISIT_WAIT_SECONDS) return;
+  for (const [key, watcher] of order) {
+    if (!worthVisiting(watcher)) continue;
+    watcher.visited = true;
+    visit.last = watcher;
+    watcher.view.copy(watcher.target);
+    return startLeg(from, key);
+  }
+  if (from !== "path") startLeg(from, "path");
+}
+function trackWatcher(key, dt) {
+  if (key === "path") return;
+  const watcher = watchers[key];
+  if (visit.mode === "watch") watcher.bearing += VISIT_DRIFT * dt;
+  visitStep.subVectors(watchPoint(watcher, watcher.target), watcher.view).multiplyScalar(easeFactor(dt, 0.5));
+  if (visitStep.length() > VISIT_MAX_SPEED * dt) visitStep.setLength(VISIT_MAX_SPEED * dt);
+  watcher.view.add(visitStep);
+}
+// How much of its own pace the path keeps: it eases to a stop as the camera leaves it and picks
+// up again as it comes back
+function pathPace() {
+  const p = visit.progress;
+  if (visit.mode === "none") return 1;
+  if (visit.mode === "glide" && visit.from === "path") return 1 - smootherstep(p, 0, 0.5);
+  if (visit.mode === "glide" && visit.to === "path") return smootherstep(p, 0.5, 1);
+  return 0;
+}
+// The lens zooms in as the camera settles to watch and back out as it moves on
+const legFov = key => (key === "path" ? CAMERA_FOV : watchers[key].fov);
+function visitFov() {
+  const p = visit.progress;
+  if (visit.mode === "none") return CAMERA_FOV;
+  if (visit.mode === "watch") return legFov(visit.to);
+  const leaving = lerp(legFov(visit.from), CAMERA_FOV, smootherstep(p, 0, visit.from === "path" ? 0.5 : 0.3));
+  return lerp(leaving, legFov(visit.to), smootherstep(p, visit.to === "path" ? 0.5 : 0.7, 1));
+}
+function legGaze(key, out) {
+  if (key === "path") return pathGaze(out);
+  return gazeTowards(watchers[key].focus(visitFocus), out);
+}
+// Place the camera and choose its gaze, on the path or out on a visit
+function updateVisit(dt) {
+  // Set off once clear of the vantage, and only when fully looking around
+  if (visit.mode === "none" && lookAround.weight === 1 && stopsAlong(lookAround.u) >= 1) nextLeg();
+  if (visit.mode === "none") {
+    lookAround.position.copy(pathPosition);
+    return pathGaze(gaze);
+  }
+  visit.time += dt;
+  trackWatcher(visit.to, dt);
+  if (visit.from !== visit.to) trackWatcher(visit.from, dt);
+  if (visit.mode === "watch") {
+    const watcher = watchers[visit.to];
+    lookAround.position.copy(watcher.view);
+    legGaze(visit.to, gaze);
+    // Move on after a good look, before the animal turns in, or sooner for another that's out and
+    // won't be for as long
+    const another = Object.values(watchers).some(other => other !== watcher && secondsOut(other) < secondsOut(watcher) && worthVisiting(other));
+    if (visit.time >= VISIT_WATCH_SECONDS || secondsOut(watcher) < VISIT_LEAVE_SECONDS || (another && visit.time >= VISIT_MIN_WATCH)) nextLeg();
+    return gaze;
+  }
+  // Glides take longer the further they go, and stretch out if the animal moves off meanwhile
+  visit.progress = Math.min(visit.progress + dt / glideSeconds(legEnd(visit.from), legEnd(visit.to)), 1);
+  const p = visit.progress;
+  const a = legEnd(visit.from);
+  const b = legEnd(visit.to);
+  const early = smootherstep(p, 0, 0.7);
+  const late = smootherstep(p, 0.3, 1);
+  const across = visit.rising ? late : early;
+  lookAround.position.set(lerp(a.x, b.x, across), lerp(a.y, b.y, visit.rising ? early : late), lerp(a.z, b.z, across));
+  // The gaze turns to where it's heading well before it gets there
+  legGaze(visit.from, legGazeFrom);
+  legGaze(visit.to, legGazeTo);
+  const g = smootherstep(p, 0.1, 0.8);
+  gaze.yaw = legGazeFrom.yaw + turnTowards(legGazeFrom.yaw, legGazeTo.yaw) * g;
+  gaze.pitch = lerp(legGazeFrom.pitch, legGazeTo.pitch, g);
+  if (p >= 1) {
+    if (visit.to === "path") visit.mode = "none";
+    else Object.assign(visit, { mode: "watch", from: visit.to, time: 0 });
+  }
+  return gaze;
+}
+
+function updateLookAround(dt) {
+  // Ease in and out of the mode over a few seconds, so the camera never lurches into motion
+  lookAround.progress = clamp(lookAround.progress + (lookAround.on ? dt : -dt) / LOOK_AROUND_BLEND_SECONDS, 0, 1);
+  lookAround.weight = smootherstep(lookAround.progress, 0, 1);
+  if (lookAround.weight === 0) return;
+  const n = LOOK_AROUND_STOPS.length;
+
+  // Drift along at the pace of the stops either side, picking up speed as the camera arrives
+  const along = stopsAlong(lookAround.u);
+  const stop = Math.floor(along);
+  const pace = lerp(LOOK_AROUND_STOPS[stop].pace, LOOK_AROUND_STOPS[(stop + 1) % n].pace, smoothstep(along - stop, 0, 1))
+    * lookAround.weight * pathPace();
+  const lastU = lookAround.u;
+  lookAround.u = (lookAround.u + (pace * dt) / LOOK_AROUND_LENGTH) % 1;
+  // A new lap: the fox and owl can be visited again
+  if (lookAround.u < lastU) for (const watcher of Object.values(watchers)) watcher.visited = false;
+  lookAroundPath.getPointAt(lookAround.u, pathPosition);
+
+  // Lean gently into the curves, like a bird riding the air
+  lookAroundPath.getTangentAt(lookAround.u, pathTangent);
+  lookAroundPath.getTangentAt((lookAround.u + 0.002) % 1, pathTangentAhead);
+  const turn = turnTowards(Math.atan2(pathTangent.x, pathTangent.z), Math.atan2(pathTangentAhead.x, pathTangentAhead.z));
+  const yawRate = (turn / (0.002 * LOOK_AROUND_LENGTH)) * pace;
+  const bank = clamp(-yawRate * LOOK_AROUND_BANK, -LOOK_AROUND_MAX_BANK, LOOK_AROUND_MAX_BANK);
+  lookAround.bank += (bank - lookAround.bank) * easeFactor(dt, 1);
+
+  // Let the gaze settle unhurriedly on whatever it's turning towards
+  const { yaw, pitch } = updateVisit(dt);
+  if (lookAround.fresh) {
+    lookAround.fresh = false;
+    lookAround.yaw = yaw;
+    lookAround.pitch = pitch;
+  }
+  // Zoomed in, every turn looks bigger, so it turns slower to match
+  const maxTurn = (LOOK_AROUND_MAX_TURN * dt * lookAround.fov) / CAMERA_FOV;
+  lookAround.yaw += clamp(turnTowards(lookAround.yaw, yaw) * easeFactor(dt, LOOK_AROUND_TURN_RATE), -maxTurn, maxTurn);
+  lookAround.pitch += clamp((pitch - lookAround.pitch) * easeFactor(dt, LOOK_AROUND_TURN_RATE), -maxTurn, maxTurn);
+  // Any drag turns the head away from the subject; resetting turns it back just as smoothly
+  lookAround.offsetYaw += (lookAround.dragYaw - lookAround.offsetYaw) * easeFactor(dt, 4);
+  lookAround.offsetPitch += (lookAround.dragPitch - lookAround.offsetPitch) * easeFactor(dt, 4);
+  const viewYaw = lookAround.yaw + lookAround.offsetYaw;
+  const viewPitch = clamp(lookAround.pitch + lookAround.offsetPitch, -1.2, 1.2);
+  lookAroundDirection.set(Math.sin(viewYaw) * Math.cos(viewPitch), Math.sin(viewPitch), Math.cos(viewYaw) * Math.cos(viewPitch));
+  lookAround.look.copy(lookAround.position).addScaledVector(lookAroundDirection, 20);
+  lookAround.up.copy(WORLD_UP).applyAxisAngle(lookAroundDirection, lookAround.bank);
+  lookAround.fov = visitFov();
+}
+
 function updateCamera(dt) {
   // Following: behind the eagle, swung round by any drag
   const behind = Math.atan2(-heading.x, -heading.z);
@@ -2929,6 +3233,21 @@ function updateCamera(dt) {
   cameraLook.lerp(eyeLook, eyeBlend);
   camera.up.copy(WORLD_UP).lerp(eyeUp, eyeBlend).normalize();
   camera.lookAt(cameraLook);
+
+  // Looking around: gliding round the lake on its own. The view turns by the shortest way
+  // between the two orientations, so it swings round evenly while the camera travels over
+  updateLookAround(dt);
+  if (lookAround.weight > 0) {
+    lookAround.facing.setFromRotationMatrix(lookAround.turn.lookAt(lookAround.position, lookAround.look, lookAround.up));
+    camera.position.lerp(lookAround.position, lookAround.weight);
+    camera.quaternion.slerp(lookAround.facing, lookAround.weight);
+  }
+  const fov = lerp(CAMERA_FOV, lookAround.fov, lookAround.weight);
+  if (fov !== camera.fov) {
+    camera.fov = mirrorCamera.fov = fov;
+    camera.updateProjectionMatrix();
+    mirrorCamera.updateProjectionMatrix();
+  }
   camera.updateMatrixWorld();
 }
 
@@ -2969,19 +3288,37 @@ buttons.forEach(b => b.addEventListener("click", () => setDistance(b.dataset.dis
 
 const followButton = document.getElementById("btn-follow");
 const eyeButton = document.getElementById("btn-eye");
+const lookButton = document.getElementById("btn-look");
 function setFollow(on) {
   const wasTouring = touring();
   follow = on;
   followButton.setAttribute("aria-pressed", String(on));
+  if (on) setLookAround(false);
   if (on && !wasTouring) joinTour();
 }
 function setEagleEye(on) {
   const wasTouring = touring();
   eagleEye = on;
   eyeButton.setAttribute("aria-pressed", String(on));
+  if (on) setLookAround(false);
   if (on && !wasTouring) joinTour();
 }
 eyeButton.addEventListener("click", () => setEagleEye(!eagleEye));
+// Looking around leaves the eagle be; starting afresh, it sets off from the vantage behind the tent
+function setLookAround(on) {
+  if (on && lookAround.progress === 0) {
+    Object.assign(lookAround, { u: 0, fresh: true, bank: 0, dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0 });
+    Object.assign(visit, { mode: "none", last: null });
+    for (const watcher of Object.values(watchers)) watcher.visited = false;
+  }
+  lookAround.on = on;
+  lookButton.setAttribute("aria-pressed", String(on));
+  if (on) {
+    setFollow(false);
+    setEagleEye(false);
+  }
+}
+lookButton.addEventListener("click", () => setLookAround(!lookAround.on));
 // Join the landscape tour at the point nearest the eagle, so it doesn't dash across the map
 function joinTour() {
   const probe = new THREE.Vector3();
@@ -3031,7 +3368,13 @@ canvas.addEventListener("pointermove", e => {
   const dy = (e.clientY - orbit.y) * DRAG_RADIANS_PER_PIXEL;
   orbit.x = e.clientX;
   orbit.y = e.clientY;
-  // Following, this swings the chase camera round; riding along, it looks around
+  // Looking around, this turns the head; following, it swings the chase camera round; riding
+  // along, it looks around
+  if (lookAround.on) {
+    lookAround.dragYaw -= dx;
+    lookAround.dragPitch = clamp(lookAround.dragPitch - dy, -1, 1);
+    return;
+  }
   if (touring()) {
     orbit.followYaw -= dx;
     orbit.followPitch = clamp(orbit.followPitch + dy, ORBIT_PITCH_LIMITS[0] - FOLLOW_PITCH, ORBIT_PITCH_LIMITS[1] - FOLLOW_PITCH);
@@ -3058,6 +3401,8 @@ function resetView() {
   orbit.free = false;
   orbit.followYaw = 0;
   orbit.followPitch = 0;
+  lookAround.dragYaw = 0;
+  lookAround.dragPitch = 0;
 }
 canvas.addEventListener("dblclick", resetView);
 
@@ -3068,6 +3413,7 @@ addEventListener("keydown", e => {
   if (distanceKey) setDistance(distanceKey);
   else if (key === "f") setFollow(!follow);
   else if (key === "e") setEagleEye(!eagleEye);
+  else if (key === "l") setLookAround(!lookAround.on);
   else if (key === "m") setSound(!sound.on);
   else if (key === "r") resetView();
 });
