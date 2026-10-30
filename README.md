@@ -118,7 +118,7 @@ A man and a woman are camping on the right-hand shore. Their camp has an orange 
 - **The bear:** on the evenings the bear comes into the camp, they hurry into the tent and stay there with the lamp lit until it has nosed round the blanket, the chairs and the fire pit and gone.
 - **Stargazing:** on northern-lights nights, and on the comet's brightest night, they lie out on a blanket beside the fire to watch, and stay up until 23:30.
 - **The comet:** on comet evenings they point it out to each other as it comes out in the dusk, taking their marshmallows out of the fire a moment to do it.
-- **Night:** once they turn in (21:00, or later after stargazing) until sunrise, they're in the tent. A lamp lights it from inside and the fire burns outside, throwing sparks and a warm glow on the ground.
+- **Night:** once they turn in (21:00, or later after stargazing) until sunrise, they're in the tent. A lamp lights it from inside and the fire burns outside, throwing sparks and a warm glow on the ground. Once they're both in with the lamp lit, the tent jiggles and sways for a few seconds as they settle in.
 
 ### The floatplane
 
