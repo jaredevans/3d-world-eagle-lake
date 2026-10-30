@@ -134,7 +134,7 @@ h1 {
 @media (hover: none) { .dock kbd { display: none; } }
 </style>
 
-<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again, and on calm mornings a hot-air balloon drifts across the valley, its burner flaring. A great snow-capped mountain rises beyond the foothills, its snow glistening in the sun and flushing pink at dawn and dusk. On fine days turkey vultures circle up on rising warm air, a red-tailed hawk circles screaming over the meadow, and airliners draw contrails across the sky that linger when rain is on the way, after high cloud brings a halo and sundogs round the sun. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
+<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again, and on calm mornings a hot-air balloon drifts across the valley, its burner flaring. A great snow-capped mountain rises beyond the foothills, its snow glistening in the sun and flushing pink at dawn and dusk. On fine days turkey vultures circle up on rising warm air, a red-tailed hawk circles screaming over the meadow, and airliners draw contrails across the sky that linger when rain is on the way, after high cloud brings a halo and sundogs round the sun. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, now and then a comet hangs low in the west for a few nights, on rare nights a UFO hovers over the lake with flashing red and green lights, sweeps a spotlight across the water and beams one of the campers up out of the tent, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
 
 <div class="card">
   <p class="eyebrow">American bald eagle · <i>Haliaeetus leucocephalus</i></p>
@@ -1098,7 +1098,114 @@ const aurora = new THREE.Mesh(
 aurora.visible = false;
 scene.add(aurora);
 let auroraTonight = false;
+// They stay up late to lie out and watch on northern-lights nights, and on the comet's brightest night
+let stargazeTonight = false;
 let nightsSeen = 0;
+
+// A comet, now and then: it turns up for four nights running, brightening to the third and fading on the
+// fourth. It hangs low in the west (to the right of the starting view, where the sun has gone down) through
+// the evening, its tails streaming up and away from the sun: a broad, gently curving, creamy dust tail and
+// a thin, straight, bluish ion tail. It follows the sun down, setting a few hours after dusk. Twilight,
+// moonlight and cloud all wash it out. Its visits are settled at noon, like the northern lights.
+const COMET_CHANCE = 0.12;                // each noon, when none is about, the chance one turns up
+const COMET_NIGHTS = [0.45, 0.8, 1, 0.6]; // how bright it is on each night of its visit
+const COMET_LAG = 1;                      // radians behind the sun along its daily arc
+const COMET_ARC_HEIGHT = 0.32;            // how high that arc rises, kept low so it hangs over the hills
+const COMET_RADIUS = 470;
+const COMET_LENGTH = 150;                 // its tails' length across the sky, about 18°
+const COMET_WIDTH = COMET_LENGTH * 0.75;
+const COMET_HEAD_AT = 48 / 512;           // where the head sits along the texture
+function cometTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 384;
+  const g = c.getContext("2d");
+  const head = { x: COMET_HEAD_AT * c.width, y: c.height / 2 };
+  g.globalCompositeOperation = "lighter";
+  g.lineCap = "round";
+  // The dust tail: a wide fan of faint streaks, broadening and bending to one side as it streams away,
+  // the outer ones shorter so the end of the fan is rounded
+  for (let i = 0; i < 90; i++) {
+    const spread = (i / 89) * 2 - 1;
+    const end = c.width - 8 - Math.abs(spread) * 70;
+    const fade = g.createLinearGradient(head.x, head.y, end, head.y);
+    fade.addColorStop(0, "rgba(255, 240, 212, 0.075)");
+    fade.addColorStop(0.45, "rgba(255, 236, 200, 0.04)");
+    fade.addColorStop(1, "rgba(255, 230, 190, 0)");
+    g.strokeStyle = fade;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(head.x, head.y + spread * 3);
+    g.quadraticCurveTo(c.width * 0.45, head.y + spread * 34 + 26, end, head.y + spread * 100 + 78);
+    g.stroke();
+  }
+  // The ion tail: thin and straight, with a faint sheen either side
+  for (const [width, alpha] of [[12, 0.06], [3, 0.32]]) {
+    const fade = g.createLinearGradient(head.x, head.y, c.width, head.y);
+    fade.addColorStop(0, `rgba(160, 200, 255, ${alpha})`);
+    fade.addColorStop(1, "rgba(160, 200, 255, 0)");
+    g.strokeStyle = fade;
+    g.lineWidth = width;
+    g.beginPath();
+    g.moveTo(head.x, head.y);
+    g.lineTo(c.width - 4, head.y - 18);
+    g.stroke();
+  }
+  // The head: a bright core in a greenish haze
+  const glow = g.createRadialGradient(head.x, head.y, 0, head.x, head.y, 40);
+  glow.addColorStop(0, "rgba(245, 255, 248, 1)");
+  glow.addColorStop(0.12, "rgba(200, 255, 222, 0.85)");
+  glow.addColorStop(0.45, "rgba(120, 230, 170, 0.22)");
+  glow.addColorStop(1, "rgba(120, 230, 170, 0)");
+  g.fillStyle = glow;
+  g.fillRect(0, 0, c.width, c.height);
+  return new THREE.CanvasTexture(c);
+}
+// A flat card on the sky with the head at its origin and the tails streaming off along +x
+const cometMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(COMET_LENGTH, COMET_WIDTH).translate(COMET_LENGTH * (0.5 - COMET_HEAD_AT), 0, 0),
+  new THREE.MeshBasicMaterial({ map: cometTexture(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide })
+);
+cometMesh.visible = false;
+scene.add(cometMesh);
+// `visit` counts the nights of a visit (-1 when there's none); `level` is how clearly it shows just now
+const comet = { visit: -1, brightness: 0, level: 0, spottedDay: -1, dir: new THREE.Vector3(), tail: new THREE.Vector3() };
+// Where the campers point when they spot it: out along its direction from the camp
+const cometSight = new THREE.Vector3();
+const cometBasis = new THREE.Matrix4();
+const cometUp = new THREE.Vector3();
+const cometFacing = new THREE.Vector3();
+// Each noon: a night further into the visit, or now and then a new one (never on the first night,
+// which has the northern lights)
+function planComet() {
+  if (comet.visit >= 0) comet.visit++;
+  if (comet.visit >= COMET_NIGHTS.length) comet.visit = -1;
+  if (comet.visit < 0 && day >= 2 && Math.random() < COMET_CHANCE) comet.visit = 0;
+  comet.brightness = comet.visit >= 0 ? COMET_NIGHTS[comet.visit] : 0;
+}
+// On the brightest night the campers stay up to lie out and watch it, as for the northern lights
+const cometPeakTonight = () => comet.brightness === 1;
+function updateComet() {
+  skyDirection(sunArc(hour) - COMET_LAG, COMET_ARC_HEIGHT, comet.dir);
+  // Its tails point away from the sun
+  comet.tail.copy(comet.dir).multiplyScalar(comet.dir.dot(SUN_DIR)).sub(SUN_DIR).normalize();
+  const dark = 1 - smoothstep(sunHeight, -0.15, -0.03);
+  const moonWash = 1 - 0.5 * skyUniforms.moonVis.value * skyUniforms.moonLit.value;
+  comet.level = comet.brightness * dark * (1 - weather.overcast) * moonWash * smoothstep(comet.dir.y, 0, 0.08);
+  cometMesh.visible = comet.level > 0.005;
+  cometSight.set(CAMP.x, groundY, CAMP.z).addScaledVector(comet.dir, 200);
+  // The campers point it out to each other as it comes out in the dusk
+  if (comet.level > 0.3 && comet.spottedDay !== day) {
+    comet.spottedDay = day;
+    campers.forEach((camper, i) => Object.assign(camper.userData, { spotting: POINT_OUT_SECONDS + i * 1.5, spotWhat: cometSight }));
+  }
+  if (!cometMesh.visible) return;
+  cometMesh.material.opacity = comet.level;
+  cometMesh.position.copy(camera.position).addScaledVector(comet.dir, COMET_RADIUS);
+  cometFacing.copy(comet.dir).negate();
+  cometUp.crossVectors(cometFacing, comet.tail);
+  cometMesh.quaternion.setFromRotationMatrix(cometBasis.makeBasis(comet.tail, cometUp, cometFacing));
+}
 
 // Morning mist hanging over the lake at dawn, burning off as the sun climbs
 const softTex = softTexture();
@@ -1675,7 +1782,7 @@ const SUNSET = 20;
 const DAY_HOURS_PER_SECOND = 0.2;   // daylight lasts 70 seconds
 const NIGHT_HOURS_PER_SECOND = 0.5; // deep night passes faster, once the campers have turned in
 const NIGHT_FALLS = 21;             // ...which is later on northern-lights nights, when they stay up to watch
-const fastNightFrom = () => (auroraTonight ? STARGAZE_BEDTIME : NIGHT_FALLS);
+const fastNightFrom = () => (stargazeTonight ? STARGAZE_BEDTIME : NIGHT_FALLS);
 const SUN_SWING = 0.7;              // radians left and right of centre where the sun rises and sets
 const NOON_ELEVATION = 0.96;        // about 55° above the horizon
 const MIDNIGHT_DEPTH = 0.6;         // how far below the horizon the sun sinks at night
@@ -4955,7 +5062,7 @@ const BALLOON_CLIMB_SLOPE = 0.02; // how steeply its path must rise for it to co
 const balloonClimb = new THREE.Vector3();
 const BALLOON_CHANCE = 0.5;
 const BALLOON_SPOTTED = 0.3; // how far across it is when the campers point it out
-const BALLOON_POINT_SECONDS = 6;
+const POINT_OUT_SECONDS = 6; // how long the campers point something out to each other
 const balloonPath = new THREE.CatmullRomCurve3([
   [-95, -30, -182], [-85, 20, -170], [-50, 36, -148], [5, 40, -140], [50, 38, -165], [68, 30, -230], [80, -12, -300]
 ].map(point => new THREE.Vector3(...point)));
@@ -5035,7 +5142,7 @@ function updateBalloon(dt, now) {
   if (lastAlong < BALLOON_SPOTTED && b.along >= BALLOON_SPOTTED) {
     // She spots it first, then he looks up too
     // (he's the first camper, so his count starts further back)
-    campers.forEach((camper, i) => (camper.userData.spotting = BALLOON_POINT_SECONDS + (1 - i) * 1.5));
+    campers.forEach((camper, i) => Object.assign(camper.userData, { spotting: POINT_OUT_SECONDS + (1 - i) * 1.5, spotWhat: balloonSight }));
   }
   balloonPath.getPointAt(b.along, balloon.position);
   // Turning slowly as it drifts, with a gentle sway of the basket
@@ -5313,7 +5420,8 @@ const campers = CAMPERS.map(outfit => {
   const camper = makeCamper(outfit);
   camper.scale.setScalar(outfit.height);
   Object.assign(camper.userData, {
-    chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0,
+    height: outfit.height, abducted: null,
+    chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0, spotWhat: null,
     seat: new THREE.Vector3(x - Math.sin(facing) * SEAT_BACK, groundY, z - Math.cos(facing) * SEAT_BACK)
   });
   camper.position.copy(TENT_DOOR);
@@ -5423,6 +5531,226 @@ function updateBalloonRiders(dt, now) {
     head.rotation.set(-Math.atan2(lookLocal.y, Math.hypot(lookLocal.x, lookLocal.z)) + nod, clamp(Math.atan2(lookLocal.x, lookLocal.z), -1.2, 1.2), 0);
   });
 }
+
+// A UFO: a surprise visit on about one night in five (never in the first few), at any time from the
+// campers' bedtime until two in the morning. Out of nowhere a saucer streaks down from high over the
+// mountain, slows and hangs over the middle of the lake, bobbing and slowly turning, the lights round its
+// rim chasing round in flashes of red and green. It shines a spotlight down onto the water and sweeps it
+// slowly back and forth across the lake, and everything on the water dives or scatters. Then it glides
+// over to the camp, its spotlight sliding off the water onto the tent, and one of the campers floats up
+// out of the tent in the beam, slowly turning with arms flung up, and is drawn up into the saucer. The
+// spotlight snaps off and it shoots straight up and away. (Whoever was taken turns up back in the tent at
+// sunrise, none the worse.) Campers still up point it out, and the clock line says where it is.
+const UFO_CHANCE = 0.2;
+const UFO_HOURS_PER_SECOND = 0.03; // time all but stands still while it's here, as they say it does
+const UFO_HOURS = { from: 21.3, to: 26 }; // (26 is two in the morning)
+const UFO_FROM = new THREE.Vector3(160, 220, -520); // high over the mountain
+const UFO_SWOOP = new THREE.Vector3(60, 45, -120);   // the curve it comes down on
+const UFO_HOVER = new THREE.Vector3(LAKE.x, LAKE.y + 10, LAKE.z); // low enough to hang in the starting view
+const UFO_CAMP = new THREE.Vector3(TENT.x, LAKE.y + 10, TENT.z);   // over the tent
+const TENT_FLOOR = new THREE.Vector3(TENT.x, groundY + 0.05, TENT.z); // where the spotlight falls on it
+const UFO_SECONDS = { arrive: 4.5, hover: 14, toCamp: 3.5, abduct: 8.5, leave: 2.2 };
+const UFO_LIFT = { from: 1.5, seconds: 5 }; // when, in the abduction, the camper starts up the beam, and for how long
+const UFO_SPOT_RADIUS = 2.4;
+const UFO_RIM_LIGHTS = 12;
+const UFO_RED = new THREE.Color(0xff3030);
+const UFO_GREEN = new THREE.Color(0x30ff60);
+function makeUfo() {
+  const ufo = new THREE.Group();
+  // A saucer, with a glowing dome on top and a pale glow underneath
+  const hull = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.85, roughness: 0.3, emissive: 0x1a2028 });
+  const profile = [[0, -0.5], [1.2, -0.45], [2.6, -0.15], [3.2, 0], [2.6, 0.2], [1.4, 0.45], [0, 0.5]];
+  ufo.add(new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 32), hull));
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x7fe8ff, transparent: true, opacity: 0.75 }));
+  dome.position.y = 0.4;
+  const underglow = new THREE.Mesh(new THREE.CircleGeometry(1.3, 24).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xbfefff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  underglow.position.y = -0.52;
+  ufo.add(dome, underglow);
+  // The rim lights, each with a soft halo so it carries across the lake
+  const lights = Array.from({ length: UFO_RIM_LIGHTS }, (_, i) => {
+    const angle = (i / UFO_RIM_LIGHTS) * Math.PI * 2;
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    bulb.position.set(Math.cos(angle) * 3.15, 0, Math.sin(angle) * 3.15);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: softTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    halo.scale.setScalar(1.6);
+    bulb.add(halo);
+    ufo.add(bulb);
+    return { bulb, halo, base: i % 2 ? UFO_RED : UFO_GREEN };
+  });
+  Object.assign(ufo.userData, { lights });
+  return ufo;
+}
+const ufo = makeUfo();
+ufo.visible = false;
+scene.add(ufo);
+// The spotlight's beam, brightest at the saucer and fading towards the water, and the pool of light it
+// throws on the lake
+function beamFade() {
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 64;
+  const g = c.getContext("2d");
+  const fade = g.createLinearGradient(0, 0, 0, 64);
+  fade.addColorStop(0, "rgba(255, 255, 255, 1)");
+  fade.addColorStop(1, "rgba(255, 255, 255, 0.25)");
+  g.fillStyle = fade;
+  g.fillRect(0, 0, 4, 64);
+  return new THREE.CanvasTexture(c);
+}
+const ufoBeam = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.8, UFO_SPOT_RADIUS, 1, 24, 1, true).translate(0, -0.5, 0),
+  new THREE.MeshBasicMaterial({ color: 0xd8f4ff, map: beamFade(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+);
+ufoBeam.visible = false;
+scene.add(ufoBeam);
+const ufoPool = new THREE.Mesh(
+  new THREE.CircleGeometry(UFO_SPOT_RADIUS * 1.3, 32).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xe0f6ff, map: softTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+);
+ufoPool.layers.set(NOT_REFLECTED);
+ufoPool.visible = false;
+scene.add(ufoPool);
+const ufoState = {
+  mode: "away", tonight: false, hour: 0, time: 0, spot: 0, leave: 0, taken: null,
+  spotAt: new THREE.Vector3(), from: new THREE.Vector3(), spotFrom: new THREE.Vector3(), liftFrom: new THREE.Vector3()
+};
+// Settled at noon for the night ahead
+function planUfo() {
+  ufoState.tonight = day >= 3 && Math.random() < UFO_CHANCE;
+  ufoState.hour = lerp(UFO_HOURS.from, UFO_HOURS.to, Math.random()) % 24;
+}
+const ufoAbout = () => ufoState.mode !== "away";
+const ufoAtCamp = () => ufoState.mode === "toCamp" || ufoState.mode === "abduct";
+const ufoTaking = new THREE.Vector3();
+// One of the campers, picked out at random, floating up the beam from wherever they are (up through
+// the tent if they're asleep), turning slowly with their arms flung up and legs dangling, and shrinking
+// away into the saucer
+function liftCamper(camper, t, now, dt) {
+  const c = camper.userData;
+  camper.visible = true;
+  ufo.localToWorld(ufoTaking.set(0, -0.5, 0));
+  camper.position.lerpVectors(ufoState.liftFrom, ufoTaking, smoothstep(t, 0, 1));
+  camper.position.y -= 1.7 * (1 - smoothstep(t, 0.6, 1)) * smoothstep(t, 0, 0.2); // feet first, then drawn in
+  camper.rotation.set(0, camper.rotation.y + dt * 1.6, 0);
+  camper.scale.setScalar(c.height * (1 - 0.9 * smoothstep(t, 0.8, 1)));
+  c.body.position.y = 0;
+  c.upper.rotation.set(0, 0, 0);
+  for (const { shoulder, side } of c.arms) shoulder.quaternion.setFromEuler(armSwing.set(-2.7 + Math.sin(now * 4 + side) * 0.25, 0, side * 0.35));
+  for (const { thigh, knee, phase } of c.legs) {
+    thigh.rotation.x = Math.sin(now * 3 + phase) * 0.35;
+    knee.rotation.x = 0.3 + Math.max(Math.sin(now * 3 + phase), 0) * 0.3;
+  }
+}
+const ufoDown = new THREE.Vector3(0, -1, 0);
+const ufoToSpot = new THREE.Vector3();
+const ufoUnder = new THREE.Vector3();
+function updateUfo(dt, now, lastHour) {
+  const u = ufoState;
+  // Whoever was taken is back in the tent by sunrise, and up and about as usual
+  if (u.taken && u.taken.userData.abducted === "gone" && hour >= SUNRISE && hour < 12) {
+    u.taken.userData.abducted = null;
+    u.taken = null;
+  }
+  if (u.mode === "away") {
+    const due = lastHour < u.hour && hour >= u.hour;
+    if (!u.tonight || !due || weather.rain > 0.3) return;
+    u.tonight = false;
+    Object.assign(u, { mode: "arrive", time: 0, spot: 0, leave: 0 });
+    ufo.visible = true;
+  }
+  u.time += dt;
+  if (u.mode === "arrive") {
+    // Streaking down out of the sky and slowing to a stop over the lake
+    const t = 1 - (1 - Math.min(u.time / UFO_SECONDS.arrive, 1)) ** 3;
+    bezier(UFO_FROM, UFO_SWOOP, UFO_HOVER, t, ufo.position);
+    if (u.time >= UFO_SECONDS.arrive) {
+      Object.assign(u, { mode: "hover", time: 0 });
+      startleLake(UFO_HOVER);
+      for (const camper of campers) {
+        if (camper.userData.state !== "inTent") Object.assign(camper.userData, { spotting: POINT_OUT_SECONDS, spotWhat: ufo.position });
+      }
+    }
+  } else if (u.mode === "hover") {
+    ufo.position.copy(UFO_HOVER);
+    ufo.position.y += Math.sin(now * 1.3) * 0.3;
+    u.spot = Math.min(u.spot + dt, 1);
+    if (u.time >= UFO_SECONDS.hover) {
+      // Off to the camp, the spotlight sliding off the water onto the tent as it goes
+      Object.assign(u, { mode: "toCamp", time: 0 });
+      u.from.copy(ufo.position);
+      u.spotFrom.copy(u.spotAt);
+    }
+  } else if (u.mode === "toCamp") {
+    const t = smootherstep(u.time / UFO_SECONDS.toCamp, 0, 1);
+    ufo.position.lerpVectors(u.from, UFO_CAMP, t);
+    if (u.time >= UFO_SECONDS.toCamp) {
+      Object.assign(u, { mode: "abduct", time: 0 });
+      // One of them, at random: up through the tent if they're asleep, or from wherever they are
+      u.taken = campers[Math.floor(Math.random() * campers.length)];
+      const c = u.taken.userData;
+      if (c.state === "inTent") u.liftFrom.copy(TENT_FLOOR);
+      else u.liftFrom.copy(u.taken.position);
+      c.abducted = "lifting";
+      // The other one, if they're up, points at them going
+      for (const camper of campers) {
+        if (camper !== u.taken && camper.userData.state !== "inTent") Object.assign(camper.userData, { spotting: POINT_OUT_SECONDS, spotWhat: u.taken.position });
+      }
+    }
+  } else if (u.mode === "abduct") {
+    ufo.position.copy(UFO_CAMP);
+    ufo.position.y += Math.sin(now * 1.3) * 0.2;
+    const lift = (u.time - UFO_LIFT.from) / UFO_LIFT.seconds;
+    if (u.taken.userData.abducted === "lifting" && lift > 0) {
+      if (lift < 1) liftCamper(u.taken, lift, now, dt);
+      else {
+        // Gone, until sunrise
+        u.taken.scale.setScalar(u.taken.userData.height);
+        setCamperState(u.taken, "inTent");
+        u.taken.userData.abducted = "gone";
+      }
+    }
+    if (u.time >= UFO_SECONDS.abduct) {
+      Object.assign(u, { mode: "leave", time: 0, spot: 0 });
+      u.from.copy(ufo.position);
+    }
+  } else if (u.mode === "leave") {
+    // Gone in a flash, straight up and away
+    const t = u.time / UFO_SECONDS.leave;
+    u.leave = t;
+    ufo.position.copy(u.from).add(ufoUnder.set(0.3, 1, -0.5).normalize().multiplyScalar(450 * t * t));
+    if (t >= 1) {
+      u.mode = "away";
+      ufo.visible = false;
+    }
+  }
+  ufo.rotation.set(Math.sin(now * 0.9) * 0.04, ufo.rotation.y + dt * 0.8, Math.sin(now * 0.7) * 0.04);
+  // The rim lights chase round, red and green by turns
+  const step = Math.floor(now * 6);
+  ufo.userData.lights.forEach(({ bulb, halo, base }, i) => {
+    const on = (i + step) % 3 === 0 ? 1 : 0.15;
+    bulb.material.color.copy(base).multiplyScalar(on);
+    halo.material.color.copy(base);
+    halo.material.opacity = on;
+  });
+  // The spotlight, sweeping slowly back and forth across the lake, then sliding over onto the tent
+  if (u.mode === "hover" || u.mode === "arrive") {
+    const sweep = u.mode === "hover" ? u.time : 0;
+    u.spotAt.set(LAKE.x + Math.sin(sweep * 0.35) * LAKE.rx * 0.55, LAKE.y + 0.03, LAKE.z + Math.sin(sweep * 0.23 + 1) * LAKE.rz * 0.5);
+  } else if (u.mode === "toCamp") u.spotAt.lerpVectors(u.spotFrom, TENT_FLOOR, smootherstep(u.time / UFO_SECONDS.toCamp, 0, 1));
+  else if (u.mode === "abduct") u.spotAt.copy(TENT_FLOOR);
+  ufoBeam.visible = ufoPool.visible = (u.mode === "hover" || ufoAtCamp()) && u.spot > 0.01;
+  if (!ufoBeam.visible) return;
+  const flicker = 0.9 + 0.1 * Math.sin(now * 23);
+  ufo.localToWorld(ufoUnder.set(0, -0.5, 0));
+  ufoBeam.position.copy(ufoUnder);
+  ufoToSpot.subVectors(u.spotAt, ufoUnder);
+  ufoBeam.scale.set(1, ufoToSpot.length(), 1);
+  ufoBeam.quaternion.setFromUnitVectors(ufoDown, ufoToSpot.normalize());
+  ufoBeam.material.opacity = 0.32 * u.spot * flicker;
+  ufoPool.position.copy(u.spotAt);
+  ufoPool.material.opacity = 0.85 * u.spot * flicker;
+}
+
 
 // On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
 // slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
@@ -5845,15 +6173,17 @@ function updateCamper(camper, dt, now, indoors) {
   if (c.state === "inTent") return;
 
   const moving = c.state in CAMPER_ARRIVALS;
-  // They point at the eagle when it passes overhead, or out at the balloon as it comes over
+  // They point at the eagle when it passes overhead, or out at the balloon as it comes over or the comet
+  // as it comes out in the dusk
   const overhead = bird.position.y > groundY + CAMPER_HEAD_HEIGHT + POINT_CLEARANCE && bird.position.distanceTo(camper.position) < POINT_RANGE;
   c.spotting -= dt;
-  const spotting = c.spotting > 0 && c.spotting <= BALLOON_POINT_SECONDS && balloon.visible;
+  const spotting = c.spotting > 0 && c.spotting <= POINT_OUT_SECONDS && c.spotWhat !== null;
   if (overhead) c.sight.copy(bird.position);
-  else if (spotting) c.sight.copy(balloonSight);
+  else if (spotting) c.sight.copy(c.spotWhat);
   const toEagle = Math.atan2(c.sight.x - camper.position.x, c.sight.z - camper.position.z);
-  // Too busy to point while fishing, toasting a marshmallow or lying out under the stars
-  const busy = c.state === "fishing" || c.state === "stargaze" || c.roast > 0.5 || c.lie > 0.1;
+  // Too busy to point while fishing, toasting a marshmallow or lying out under the stars (though they'll
+  // take the stick out of the fire a moment to point something out)
+  const busy = c.state === "fishing" || c.state === "stargaze" || (c.roast > 0.5 && !spotting) || c.lie > 0.1;
   c.point += (((overhead || spotting) && !indoors && !busy ? 1 : 0) - c.point) * easeFactor(dt, 4);
   c.sit += ((c.state === "sit" || afloat ? 1 : 0) - c.sit) * easeFactor(dt, 3);
   c.boat += ((afloat ? 1 : 0) - c.boat) * easeFactor(dt, 3);
@@ -5950,7 +6280,7 @@ function updateCamper(camper, dt, now, indoors) {
 }
 
 function updateCamp(dt, now) {
-  const bedtime = auroraTonight ? STARGAZE_BEDTIME : CAMP_BEDTIME;
+  const bedtime = stargazeTonight ? STARGAZE_BEDTIME : CAMP_BEDTIME;
   const night = hour >= bedtime || hour < SUNRISE;
   updateCanoe(dt, now, night);
   // The fire's lit at dusk and burns on through the night
@@ -5961,10 +6291,13 @@ function updateCamp(dt, now) {
   const scared = bearNearCamp();
   // (He's out before sunrise on his fishing mornings)
   const dawnFishing = camper => hour < SUNRISE && ["toFish", "fishing"].includes(camper.userData.state);
-  for (const camper of campers) updateCamper(camper, dt, now, (night && !dawnFishing(camper)) || weather.rain > CAMPER_SHELTER_RAIN || scared);
+  for (const camper of campers) {
+    if (camper.userData.abducted) continue; // in the UFO's hands
+    updateCamper(camper, dt, now, (night && !dawnFishing(camper)) || weather.rain > CAMPER_SHELTER_RAIN || scared);
+  }
   updateFishing(dt, now);
   // The day's outings: fishing at first light, her lantern walk to the water at dusk, and lying out
-  // to watch the northern lights
+  // to watch the northern lights (or the comet)
   const [him, her] = campers;
   const free = camper => ["stand", "walk", "sit", "toChair"].includes(camper.userData.state);
   const dry = weather.phase === "clear" && weather.rain < 0.05;
@@ -5979,13 +6312,13 @@ function updateCamp(dt, now) {
     if (asleep) leaveTent(him);
     setCamperState(him, "toFish");
   }
-  // (On northern-lights nights they're too busy getting ready to lie out and watch)
-  if (camp.lanternDay !== day && !auroraTonight && hour >= LANTERN_HOUR && hour < CAMP_BEDTIME - 0.3 && free(her) && dry && !scared) {
+  // (On stargazing nights they're too busy getting ready to lie out and watch)
+  if (camp.lanternDay !== day && !stargazeTonight && hour >= LANTERN_HOUR && hour < CAMP_BEDTIME - 0.3 && free(her) && dry && !scared) {
     camp.lanternDay = day;
     setCamperState(her, "toShore");
     her.userData.carrying = true;
   }
-  if (auroraTonight && hour >= STARGAZE_HOUR && hour < bedtime && dry && !scared) {
+  if (stargazeTonight && hour >= STARGAZE_HOUR && hour < bedtime && dry && !scared) {
     for (const camper of campers) if (free(camper)) setCamperState(camper, "toBlanket");
   }
   lantern.visible = her.userData.carrying && her.visible;
@@ -6278,7 +6611,7 @@ function updateRaccoon(dt, now) {
   if (r.mode === "away") {
     raccoon.visible = false;
     // Out once the camp's asleep, on nights without the northern lights (they're up late) or the bear
-    if (r.night !== day && hour >= RACCOON_HOUR && r.tonight && !auroraTonight && !bearNearCamp() && campers.every(c => !c.visible)) {
+    if (r.night !== day && hour >= RACCOON_HOUR && r.tonight && !stargazeTonight && !bearNearCamp() && campers.every(c => !c.visible)) {
       r.night = day;
       raccoon.visible = true;
       raccoon.position.copy(RACCOON_DEN);
@@ -6995,6 +7328,24 @@ function startSound() {
     osc.start();
     return { osc, ratio };
   });
+  // The UFO's eerie, warbling hum
+  const ufoGain = ctx.createGain();
+  ufoGain.gain.value = 0;
+  ufoGain.connect(master);
+  const ufoWarble = ctx.createOscillator();
+  ufoWarble.frequency.value = 5;
+  const ufoWarbleDepth = ctx.createGain();
+  ufoWarbleDepth.gain.value = 7;
+  ufoWarble.connect(ufoWarbleDepth);
+  ufoWarble.start();
+  const ufoTones = [92, 139].map(freq => {
+    const osc = ctx.createOscillator();
+    osc.frequency.value = freq;
+    ufoWarbleDepth.connect(osc.frequency);
+    osc.connect(ufoGain);
+    osc.start();
+    return { osc, freq };
+  });
   // The balloon's burner: a breathy roar, and the far-off rumble of airliners high overhead
   const burnerFilter = ctx.createBiquadFilter();
   burnerFilter.type = "bandpass";
@@ -7019,7 +7370,7 @@ function startSound() {
   echoFilter.frequency.value = 1600;
   echo.connect(echoFilter).connect(echoFeedback).connect(echo);
   echoFilter.connect(master);
-  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain, waterGain, engines, engineGain, burnerGain, jetGain, echo });
+  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain, waterGain, engines, engineGain, burnerGain, jetGain, ufoGain, ufoTones, echo });
 }
 function tone({ type = "sine", freq, freqEnd, start, duration, gain, pan = 0, filter }) {
   const { ctx } = sound;
@@ -7289,6 +7640,10 @@ function updateSound(dt, now) {
   const planeLoudness = floatplane.visible ? clamp(25 / Math.max(camera.position.distanceTo(floatplane.position), 1), 0, 1) ** 1.3 : 0;
   sound.engineGain.gain.setTargetAtTime(0.1 * planeLoudness * (0.4 + 0.6 * planeState.throttle), at, 0.2);
   for (const { osc, ratio } of sound.engines) osc.frequency.setTargetAtTime(lerp(55, 115, planeState.throttle) * ratio, at, 0.3);
+  // The UFO's hum, louder the nearer it is and rising in pitch as it shoots away
+  const ufoLoudness = ufo.visible ? clamp(30 / Math.max(camera.position.distanceTo(ufo.position), 1), 0, 1) : 0;
+  sound.ufoGain.gain.setTargetAtTime(0.07 * ufoLoudness, at, 0.15);
+  for (const { osc, freq } of sound.ufoTones) osc.frequency.setTargetAtTime(freq * (1 + 3 * ufoState.leave), at, 0.1);
   const balloonLoudness = balloon.visible ? clamp(60 / Math.max(camera.position.distanceTo(balloon.position), 1), 0, 1) ** 1.2 : 0;
   sound.burnerGain.gain.setTargetAtTime(0.12 * balloonLoudness * balloonState.burn, at, 0.08);
   // Louder the higher the plane, as it's nearer
@@ -8096,6 +8451,26 @@ function balloonView() {
   cycle.eye.copy(balloon.position).addScaledVector(cycleAway, BALLOON_BEHIND.back).y = balloon.position.y + BALLOON_BEHIND.up;
   cycle.target.copy(balloon.position).addScaledVector(cycleAway, -BALLOON_BEHIND.ahead).y = balloon.position.y + BALLOON_BEHIND.aim;
 }
+// The comet from the near shore, a little left of the starting view, looking out over the lake to it hanging
+// above the hills beyond the camp; aimed a little below it, so the lake fills the foreground and the comet
+// and its tails ride high in the view
+const COMET_WATCH = new THREE.Vector3(-3, groundY + 3.5, -4);
+const COMET_AIM_DROP = 14; // metres below the comet's direction, 100 m out
+function cometView() {
+  cycle.eye.copy(COMET_WATCH);
+  cycle.target.copy(comet.dir).multiplyScalar(100).add(COMET_WATCH).y -= COMET_AIM_DROP;
+}
+// The UFO from the shore just behind the starting view, looking up at it hanging over the lake with its
+// spotlight playing on the water below; when it moves over to the camp, the camera glides out over the
+// water off the camp to watch the abduction close up
+const UFO_WATCH = new THREE.Vector3(0, groundY + 3, 4);
+const UFO_CAMP_WATCH = new THREE.Vector3(10, groundY + 3.5, -16);
+function ufoView() {
+  cycle.eye.copy(ufoAtCamp() ? UFO_CAMP_WATCH : UFO_WATCH);
+  // Following it up and away as it goes
+  if (ufoState.mode === "leave") cycle.target.copy(ufo.position);
+  else cycle.target.lerpVectors(ufo.position, ufoState.spotAt, 0.4);
+}
 // The frog being watched, kept while it's on its pad
 function watchedFrog() {
   if (!cycle.frog || !cycle.frog.visible) cycle.frog = firstVisible(frogs) || null;
@@ -8108,7 +8483,7 @@ const herdCentre = new THREE.Vector3();
 // `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view;
 // `priority`: flown to straight away when its subject turns up; `find`: a subject quick enough to slip out
 // of sight on the way in, which the gaze picks up early in the flight and keeps on until it arrives;
-// `dash`: flown to quickly
+// `dash`: flown to quickly; `hold`: stays on it while this is true, however long that is
 const CYCLE_VIEWS = [
   { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
   { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
@@ -8131,6 +8506,8 @@ const CYCLE_VIEWS = [
   { name: "Behind the deer", present: () => true, place: behindView(() => centreOf(herd, herdCentre), 8, 5), frame: () => herd.map(deer => deer.position) },
   { name: "Behind the fox", present: () => fox.visible, place: behindView(() => fox.position, 5, 2.5, { past: 5 }) },
   { name: "Behind the owl", present: () => owl.visible, place: chaseView(() => owl, 5, 2, 6) },
+  { name: "The comet", present: () => comet.level > 0.3, place: cometView },
+  { name: "The UFO", priority: true, dash: true, hold: () => ufoAbout(), present: () => ufoAbout() && !(ufoState.mode === "arrive" && ufoState.time < 1.5), place: ufoView, find: () => cycle.target },
   { name: "Behind the beavers", present: () => beavers.some(beaver => beaver.visible), place: trailView(beavers, 4, 2.5) },
   { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
   { name: "The bear", present: () => bear.visible, place: bearView },
@@ -8205,7 +8582,7 @@ function updateCycleView(dt) {
   // Each view holds for a while once the camera's got there, then it's on to the next
   const { flight } = cycle;
   flight.time += dt;
-  if (flight.time >= flight.seconds) cycle.timer -= dt;
+  if (flight.time >= flight.seconds && !CYCLE_VIEWS[cycle.index].hold?.()) cycle.timer -= dt;
   if (cycle.timer <= 0 || !CYCLE_VIEWS[cycle.index].present()) nextCycleView(true);
   const view = CYCLE_VIEWS[cycle.index];
   view.place(dt);
@@ -8566,17 +8943,21 @@ function frame() {
   elapsed += dt;
 
   const lastHour = hour;
-  hour = (hour + dt * (hour < 5 || hour >= fastNightFrom() ? NIGHT_HOURS_PER_SECOND : DAY_HOURS_PER_SECOND)) % 24;
+  const hoursPerSecond = ufoAbout() ? UFO_HOURS_PER_SECOND : hour < 5 || hour >= fastNightFrom() ? NIGHT_HOURS_PER_SECOND : DAY_HOURS_PER_SECOND;
+  hour = (hour + dt * hoursPerSecond) % 24;
   // The moon moves on a phase each day (at noon, while it's down). The night ahead is settled at
   // noon too, so the bear and the campers can plan round it: the first night and about half of the
-  // rest bring the northern lights, and some bring the wolves.
+  // rest bring the northern lights, now and then a comet comes for a few nights, and some bring the wolves.
   if (lastHour < 12 && hour >= 12) {
     moonPhase = MOON_START_PHASE + (++day * Math.PI * 2) / LUNAR_NIGHTS;
     auroraTonight = day === 1 || Math.random() < AURORA_CHANCE;
+    planComet();
+    planUfo();
+    stargazeTonight = auroraTonight || cometPeakTonight();
     showerTonight = Math.random() < METEOR_SHOWER_CHANCE;
     raccoonState.tonight = Math.random() < RACCOON_CHANCE;
     // The bear's evening: fishing the stream, or the berries and the camp
-    bearState.campVisit = !auroraTonight && Math.random() < BEAR_CAMP_CHANCE;
+    bearState.campVisit = !stargazeTonight && Math.random() < BEAR_CAMP_CHANCE;
     // The floatplane, some afternoons (always the first)
     planeState.hour = lerp(PLANE_HOURS.from, 13, Math.random());
     // The balloon, some mornings (always the first)
@@ -8660,6 +9041,7 @@ function frame() {
   updateFloatplane(dt, elapsed);
   updateBalloon(dt, elapsed);
   updateKettle(dt, elapsed);
+  updateUfo(dt, elapsed, lastHour);
   updateHawk(dt, elapsed);
   updateBear(dt, elapsed);
   updateSmoke(dt);
@@ -8683,6 +9065,7 @@ function frame() {
   updateShootingStars(dt);
   updateSatellite(dt);
   updateContrails(dt, elapsed);
+  updateComet();
   updateRain(dt);
   updateBeams(beamAmount, dayColors.sun);
   updateMist(dt, mistAmount, mistColor);
@@ -8700,7 +9083,9 @@ function frame() {
     const pad = n => String(Math.floor(n)).padStart(2, "0");
     const northernLights = aurora.visible && aurora.material.uniforms.opacity.value > 0.3 ? "Northern lights behind you" : "";
     const meteorShower = showerTonight && stars.material.opacity > 0.5 ? "Meteor shower" : "";
-    clockLabel.textContent = [`${pad(hour)}:${pad((hour % 1) * 60)}`, dayPart(hour), weatherLabel(), northernLights, meteorShower].filter(Boolean).join(" · ");
+    const cometOut = comet.level > 0.25 ? "Comet in the west" : "";
+    const ufoOut = ufoAbout() ? (ufoAtCamp() ? "UFO over the camp" : "UFO over the lake") : "";
+    clockLabel.textContent = [`${pad(hour)}:${pad((hour % 1) * 60)}`, dayPart(hour), weatherLabel(), northernLights, ufoOut, cometOut, meteorShower].filter(Boolean).join(" · ");
     readoutTimer = 0.1;
   }
 

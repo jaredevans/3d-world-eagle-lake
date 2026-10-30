@@ -45,18 +45,20 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 12. Behind the deer
 13. Behind the fox
 14. Behind the owl, chasing it
-15. Behind the beavers
-16. Behind the otters
-17. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
-18. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
-19. Vulture's-eye
-20. Behind the osprey
-21. Behind the red-tailed hawk
-22. Above the falls
+15. The comet, from the near shore across the lake, on comet evenings
+16. The UFO, from the shore just behind the starting view, then from over the water off the camp as it takes a camper; it stays on the UFO for its whole visit
+17. Behind the beavers
+18. Behind the otters
+19. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
+20. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
+21. Vulture's-eye
+22. Behind the osprey
+23. Behind the red-tailed hawk
+24. Above the falls
 
-The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane and the owl are chased from just above and behind, the way they're heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane and the balloon take priority: when either turns up, the camera drops what it's watching and flies straight to it, dashing over to the balloon in a couple of seconds so as to catch it still climbing. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached the floatplane or balloon in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
+The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane and the owl are chased from just above and behind, the way they're heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane, the balloon and the UFO take priority: when one turns up, the camera drops what it's watching and flies straight to it, dashing over to the balloon or the UFO in a couple of seconds so as not to miss them. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached one of them in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
-The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out. In Cycle view it also names the view.
+The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather, and when the northern lights, a comet or a UFO are out. In Cycle view it also names the view.
 
 ## What's in the scene
 
@@ -85,7 +87,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 - **River otters:** a pair porpoise and chase each other round the left half of the lake by day, rolling over as they go. Every so often they haul out together on a rock to rest, one grooming while the other looks about.
 - **Painted turtles:** a row of them basks on a half-sunk log off the near shore on fine days. When anything swims or wades close, or the eagle swoops low, they slide off one by one with a plop and climb back out a while later.
 - **Belted kingfisher:** watches from a dead stick in the shallows of the far shore. It flies out with a rattling call to hover over the water, plunges in head first and flies back, sometimes with a minnow, which it beats on the perch before swallowing it.
-- **Black bear:** every morning it comes out of the trees beyond the meadow and wades into the middle of the stream to fish. It stares into the water, swipes a paw down with a splash or rears up and pounces with both front paws, and now and then comes up with a fish and eats it. It fishes until dusk, then ambles back into the trees. On some days (never before northern-lights nights) it leaves the stream after lunch instead and crosses the meadow to the berry bushes behind the camp, sometimes rearing up on its hind legs to reach, and in the evening wanders on into the camp.
+- **Black bear:** every morning it comes out of the trees beyond the meadow and wades into the middle of the stream to fish. It stares into the water, swipes a paw down with a splash or rears up and pounces with both front paws, and now and then comes up with a fish and eats it. It fishes until dusk, then ambles back into the trees. On some days (never before stargazing nights) it leaves the stream after lunch instead and crosses the meadow to the berry bushes behind the camp, sometimes rearing up on its hind legs to reach, and in the evening wanders on into the camp.
 - **Wolves:** never seen, but on some nights a pack howls from the hills behind the lake, and the deer stop and lift their heads to listen.
 - **Chipmunks:** two dash about the camp by day, stopping to sit up and look about, and scurrying out from under the campers' feet.
 - **Pileated woodpecker:** works its way up the dead snag by day in short hops, hammering at the wood and now and then drumming, then swoops back to the foot of the trunk to start again. It keeps clear while the eagle is on the snag.
@@ -110,9 +112,10 @@ A man and a woman are camping on the right-hand shore. Their camp has an orange 
 - **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings (but not when the floatplane's due) they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. On his fishing mornings they wait till he's finished. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
 - **Evening:** they light the fire at dusk and sit round it toasting marshmallows, which turn from white to golden brown. Smoke rises from the fire and leans with the wind, and lingers in the morning as the embers die.
-- **The lantern walk:** at dusk (except on northern-lights nights) she takes a lantern down to the water's edge, stands looking out over the lake for a while and walks back up to the fire.
+- **The lantern walk:** at dusk (except on stargazing nights) she takes a lantern down to the water's edge, stands looking out over the lake for a while and walks back up to the fire.
 - **The bear:** on the evenings the bear comes into the camp, they hurry into the tent and stay there with the lamp lit until it has nosed round the blanket, the chairs and the fire pit and gone.
-- **Stargazing:** on northern-lights nights they lie out on a blanket beside the fire to watch them, and stay up until 23:30.
+- **Stargazing:** on northern-lights nights, and on the comet's brightest night, they lie out on a blanket beside the fire to watch, and stay up until 23:30.
+- **The comet:** on comet evenings they point it out to each other as it comes out in the dusk, taking their marshmallows out of the fire a moment to do it.
 - **Night:** once they turn in (21:00, or later after stargazing) until sunrise, they're in the tent. A lamp lights it from inside and the fire burns outside, throwing sparks and a warm glow on the ground.
 
 ### The floatplane
@@ -123,12 +126,17 @@ Every other afternoon, starting with the first, a red and white floatplane appea
 
 On calm mornings (the first, then about every other one) a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars in bursts as it climbs, in a flare of flame that lights the envelope from inside, which shows best in the dim early light. Once it levels off the burner stays quiet, and it sinks gently on the way down. Three riders stand in its basket, the pilot and two passengers. Through the flight they take turns pointing the lake out, while the others look or point too, and chatting: one turns to another and talks with a hand going, and the other turns to listen and nods along. Whenever the burner fires, the pilot reaches up and pulls down the cord that lights it. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
 
+### The UFO
+
+On about one night in five (never in the first few), at any time from the campers' bedtime until two in the morning, a flying saucer pays a surprise visit. It streaks down out of the sky from high over the mountain, slows and hangs over the middle of the lake, bobbing and slowly turning, the lights round its rim chasing round in flashes of red and green. It shines a spotlight down onto the water and sweeps it slowly back and forth across the lake, and the ducks paddle off while the loon, beavers and otters dive. Then it glides over to the camp, its spotlight sliding off the water onto the tent, and one of the campers floats up out of the tent in the beam, slowly turning with arms flung up and legs dangling, and is drawn up into the saucer. The spotlight snaps off and it shoots straight up and away. Whoever was taken turns up back in the tent at sunrise, none the worse, and gets on with the day. Time all but stands still while it's here: its whole half-minute visit takes only about an hour of the night. If the campers are still up, they point it out to each other, and the other one points as their friend is taken. The clock line says whether it's over the lake or the camp.
+
 ### Day and night
 
-- The sun rises at 06:00 behind the left hills and sets at 20:00 behind the right hills. Daylight lasts about 70 seconds and a full day about a minute and a half. The deep night passes faster once the campers have turned in, so on northern-lights nights, when they stay up late, the night lasts a few seconds longer. The page opens at 05:36, just before dawn.
+- The sun rises at 06:00 behind the left hills and sets at 20:00 behind the right hills. Daylight lasts about 70 seconds and a full day about a minute and a half. The deep night passes faster once the campers have turned in, so on stargazing nights, when they stay up late, the night lasts a few seconds longer. The page opens at 05:36, just before dawn.
 - The sky shifts through pre-dawn, pink dawn, blue midday, golden dusk and deep night.
 - At dawn, mist hangs over the lake and burns off as the sun climbs. By day, sunbeams slant down from the clouds and cloud shadows drift across the land, and now and then an airliner crosses high in the sky, a glint of sun on a tiny speck drawing a white trail. In dry air the trail is short and soon gone; ahead of rain it lingers and spreads into a broad soft streak. At dawn and dusk the trails glow pink.
 - At night, stars come out along with shooting stars and fireflies. About one night in three brings a meteor shower, a shooting star every second or so, all streaking out from one point low in the sky in front of the starting view (the clock line says when). Most shooting stars, shower or not, streak across the lower sky in front of the starting view, where they're in frame. In the hours after dusk and before dawn, satellites glide steadily across the sky, some fading out partway as they pass into the Earth's shadow. The moon moves through its phases over eight days and lays a glittering path across the lake. The northern lights appear on the first night and on about half of the nights after, behind the starting view.
+- Now and then a comet comes for four nights running, brightening to the third and fading on the fourth. It hangs low in the west after dusk, to the right of the starting view where the sun has gone down, and sets a few hours later. Its tails stream up and away from the sun: a broad, gently curving, creamy dust tail and a thin, straight, bluish ion tail. Twilight, moonlight and cloud wash it out, and the clock line says when it's out.
 
 ### Weather
 
@@ -157,7 +165,7 @@ All sound is generated in the browser with the Web Audio API; there are no audio
 - **The nest:** the eaglets peep while they're begging, and the mate calls when the eagle brings food in.
 - **More wildlife:** the osprey's whistled call, the kingfisher's dry rattle, the crack of a beaver's tail slap echoing across the lake, the woodpecker's drumming, the clatter of the raccoon at the cooler, the red-tailed hawk's scream, and on some nights a distant wolf pack howling.
 - **The floatplane:** the drone of its engine, rising to a roar for takeoff.
-- **Overhead:** the breathy roar of the balloon's burner, and the faint far-off rumble of airliners crossing high in the sky.
+- **Overhead:** the breathy roar of the balloon's burner, the faint far-off rumble of airliners crossing high in the sky, and the UFO's eerie, warbling hum, rising in pitch as it shoots away.
 - **Events:** the eagle's high chatter when it dives or gives chase, and splashes from catches, leaping fish and the heron. Thunder follows lightning after a delay that's longer for distant strikes.
 
 ## Accessibility
