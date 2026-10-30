@@ -6061,11 +6061,12 @@ function updateUfoWash(dt, now) {
 // meadow, clear of the stream and the deer, to the pool at the foot of the waterfall. There they get off
 // and walk down to the pool's edge: he points out the falls and the leaping fish, and she holds up her
 // phone for a photo. Then they ride back, in good time for the fire. They set off in the morning, or if
-// something keeps them in then (the canoe, the weather), in the early afternoon, on a quicker trip with
-// a shorter stay. On the bear's days at the pool they keep back by the bikes and watch it from there.
+// something keeps them in then (the canoe, the weather), around midday, on a quicker trip with a
+// shorter stay. If the sky clouds over while they're out, they turn for home before the rain comes. On
+// the bear's days at the pool they keep back by the bikes and watch it from there.
 const BIKE_OUTINGS = [
-  { from: 9.5, to: 10.5, speed: 7, watch: 5 },  // the morning ride
-  { from: 12, to: 12.5, speed: 9, watch: 2 }    // the afternoon one: quicker, to be back for the fire
+  { from: 8.5, to: 11, speed: 7, watch: 5 },    // the morning ride
+  { from: 11, to: 12.5, speed: 9, watch: 2 }    // the later one: quicker, to be back for the fire
 ];
 const BIKE_GAP = 2.6;       // metres between the two bikes
 const BIKE_STAGGER = 0.9;   // and how far hers rides to one side of his line, so you can see them both
@@ -6140,6 +6141,7 @@ bikes.forEach(bike => {
   scene.add(bike);
 });
 // His (the first) parked in front, hers behind; on the way back hers leads
+const clouding = () => weather.phase !== "clear";
 const bikeTrip = { mode: "parked", day: -1, outing: BIKE_OUTINGS[0], keepBack: false, along: BIKE_GAP, speed: 0, crank: 0, time: 0, phase: "" };
 const bikeAhead = new THREE.Vector3();
 const bikeSpot = new THREE.Vector3();
@@ -6249,7 +6251,7 @@ function updateBikes(dt, now) {
     const outing = BIKE_OUTINGS.find(({ from, to }) => hour >= from && hour < to);
     if (t.day === day || !outing) return;
     const free = campers.every(camper => ["stand", "walk", "sit"].includes(camper.userData.state) && !camper.userData.abducted);
-    const fine = weather.phase === "clear" && weather.timer > 75 && canoeTrip.mode === "beached";
+    const fine = weather.phase === "clear" && weather.timer > 40 && canoeTrip.mode === "beached";
     if (!free || !fine || ufoAbout()) return;
     // Once a day
     Object.assign(t, { day, outing, mode: "mounting" });
@@ -6275,8 +6277,11 @@ function updateBikes(dt, now) {
     // Pushing off, cruising along and easing to a stop at the end
     const direction = t.mode === "out" ? 1 : -1;
     const left = direction > 0 ? BIKE_ROUTE_LENGTH - t.along : t.along - BIKE_GAP;
-    const wanted = Math.min(t.outing.speed, Math.max(left * 0.9, 0.4));
+    // The sky clouding over on the way out: they slow to a stop, turn round and head home
+    const turning = direction > 0 && clouding();
+    const wanted = turning ? 0 : Math.min(t.outing.speed, Math.max(left * 0.9, 0.4));
     t.speed += (wanted - t.speed) * easeFactor(dt, 1.2);
+    if (turning && t.speed < 0.3) Object.assign(t, { mode: "back", speed: 0, time: 0 });
     t.along = clamp(t.along + direction * t.speed * dt, BIKE_GAP, BIKE_ROUTE_LENGTH);
     t.crank += (t.speed / BIKE_WHEEL / 2.2) * dt;
     placeBikes(dt, direction);
@@ -6296,9 +6301,9 @@ function updateBikes(dt, now) {
     }
     return;
   }
-  // At the falls
+  // At the falls (cut short if the sky's clouding over)
   const walk = BIKE_WALK;
-  const watch = t.outing.watch;
+  const watch = clouding() ? 0 : t.outing.watch;
   let progress = t.keepBack ? 0 : 1;
   if (t.keepBack) {
     // The bear's in the pool: they stay by the bikes, watch it a while and leave it be
