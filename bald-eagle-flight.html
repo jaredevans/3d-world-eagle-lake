@@ -1107,11 +1107,12 @@ let auroraTonight = false;
 let stargazeTonight = false;
 let nightsSeen = 0;
 
-// A comet, now and then: it turns up for four nights running, brightening to the third and fading on the
-// fourth. It hangs low in the west (to the right of the starting view, where the sun has gone down) through
-// the evening, its tails streaming up and away from the sun: a broad, gently curving, creamy dust tail and
-// a thin, straight, bluish ion tail. It follows the sun down, setting a few hours after dusk. Twilight,
-// moonlight and cloud all wash it out. Its visits are settled at noon, like the northern lights.
+// A comet, now and then: it turns up for four nights running, brightening to the third and fading on
+// the fourth. It hangs low in the west (to the right of the starting view, where the sun has gone down)
+// through the evening, glowing golden yellow, its tails streaming up and away from the sun: a broad,
+// gently curving dust tail and a thin, straight ion tail, both golden too. It follows the sun down,
+// setting a few hours after dusk. Twilight, moonlight and cloud all wash it out. Its visits are settled
+// at noon, like the northern lights.
 const COMET_CHANCE = 0.12;                // each noon, when none is about, the chance one turns up
 const COMET_NIGHTS = [0.45, 0.8, 1, 0.6]; // how bright it is on each night of its visit
 const COMET_LAG = 1;                      // radians behind the sun along its daily arc
@@ -1134,9 +1135,9 @@ function cometTexture() {
     const spread = (i / 89) * 2 - 1;
     const end = c.width - 8 - Math.abs(spread) * 70;
     const fade = g.createLinearGradient(head.x, head.y, end, head.y);
-    fade.addColorStop(0, "rgba(255, 240, 212, 0.075)");
-    fade.addColorStop(0.45, "rgba(255, 236, 200, 0.04)");
-    fade.addColorStop(1, "rgba(255, 230, 190, 0)");
+    fade.addColorStop(0, "rgba(255, 196, 70, 0.085)");
+    fade.addColorStop(0.45, "rgba(255, 186, 60, 0.045)");
+    fade.addColorStop(1, "rgba(255, 180, 50, 0)");
     g.strokeStyle = fade;
     g.lineWidth = 4;
     g.beginPath();
@@ -1147,8 +1148,8 @@ function cometTexture() {
   // The ion tail: thin and straight, with a faint sheen either side
   for (const [width, alpha] of [[12, 0.06], [3, 0.32]]) {
     const fade = g.createLinearGradient(head.x, head.y, c.width, head.y);
-    fade.addColorStop(0, `rgba(160, 200, 255, ${alpha})`);
-    fade.addColorStop(1, "rgba(160, 200, 255, 0)");
+    fade.addColorStop(0, `rgba(255, 200, 80, ${alpha})`);
+    fade.addColorStop(1, "rgba(255, 200, 80, 0)");
     g.strokeStyle = fade;
     g.lineWidth = width;
     g.beginPath();
@@ -1156,12 +1157,14 @@ function cometTexture() {
     g.lineTo(c.width - 4, head.y - 18);
     g.stroke();
   }
-  // The head: a bright core in a greenish haze
+  // The head: a bright core in a golden-yellow glow, laid over the tails rather than added to them
+  // (where they overlap, adding them together washes out to plain white)
+  g.globalCompositeOperation = "source-over";
   const glow = g.createRadialGradient(head.x, head.y, 0, head.x, head.y, 40);
-  glow.addColorStop(0, "rgba(245, 255, 248, 1)");
-  glow.addColorStop(0.12, "rgba(200, 255, 222, 0.85)");
-  glow.addColorStop(0.45, "rgba(120, 230, 170, 0.22)");
-  glow.addColorStop(1, "rgba(120, 230, 170, 0)");
+  glow.addColorStop(0, "rgba(255, 246, 200, 1)");
+  glow.addColorStop(0.12, "rgba(255, 214, 100, 0.9)");
+  glow.addColorStop(0.45, "rgba(255, 186, 60, 0.32)");
+  glow.addColorStop(1, "rgba(255, 176, 50, 0)");
   g.fillStyle = glow;
   g.fillRect(0, 0, c.width, c.height);
   return new THREE.CanvasTexture(c);
@@ -5560,7 +5563,7 @@ const campers = CAMPERS.map(outfit => {
   camper.scale.setScalar(outfit.height);
   Object.assign(camper.userData, {
     height: outfit.height, abducted: null,
-    chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0, spotWhat: null,
+    chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0, spotWhat: null, bikeMount: new THREE.Vector3(),
     seat: new THREE.Vector3(x - Math.sin(facing) * SEAT_BACK, groundY, z - Math.cos(facing) * SEAT_BACK)
   });
   camper.position.copy(TENT_DOOR);
@@ -5897,6 +5900,259 @@ function updateUfo(dt, now, lastHour) {
 }
 
 
+// A bike ride to the falls: on some fine mornings, if the canoe's ashore and the weather will hold,
+// the campers walk over to their two bikes parked beside the tent and ride off along the camp's side of
+// the meadow, clear of the stream and the deer, to the pool at the foot of the waterfall. There they get
+// off and walk down to the pool's edge: he points out the falls and the leaping fish, and she holds up her
+// phone for a photo. Then they ride back, in good time for the fire. They don't go on days the bear is at
+// the falls, or crossing the meadow to the camp.
+const BIKE_CHANCE = 0.5;
+const BIKE_HOURS = { from: 9.5, to: 10.5 }; // (early enough to be back for the fire; a canoe day or a bike day, not both)
+const BIKE_SPEED = 7;       // metres per second
+const BIKE_GAP = 2.6;       // metres between the two bikes
+const BIKE_STAGGER = 0.9;   // and how far hers rides to one side of his line, so you can see them both
+const BIKE_WHEEL = 0.34;    // wheel radius
+const BIKE_SADDLE = new THREE.Vector3(0, 0.88, -0.16);
+const BIKE_GRIPS = [1, -1].map(side => new THREE.Vector3(side * 0.28, 1.0, 0.43));
+const BIKE_AT_FALLS = { walk: 1.2, watch: 5 }; // seconds to walk down to the pool and back, and to stay
+// Out from beside the tent along the right of the meadow, round past the berry bushes and on to the pool
+const bikeRoute = new THREE.CatmullRomCurve3([[28.4, -30.6], [28.4, -33.5], [28.4, -45], [21, -59], [13, -76], [5.5, -86], [1.8, -90.6]]
+  .map(([x, z]) => new THREE.Vector3(x, groundY, z)));
+bikeRoute.arcLengthDivisions = 1000;
+const BIKE_ROUTE_LENGTH = bikeRoute.getLength();
+function makeBike(color) {
+  const bike = new THREE.Group();
+  const paint = new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.5, metalness: 0.3 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1e1e22, flatShading: true, roughness: 0.7 });
+  const up = new THREE.Vector3(0, 1, 0);
+  const tube = (from, to, radius, material, parent = bike) => {
+    const a = new THREE.Vector3(...from);
+    const b = new THREE.Vector3(...to);
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, a.distanceTo(b), 6), material);
+    mesh.position.lerpVectors(a, b, 0.5);
+    mesh.quaternion.setFromUnitVectors(up, b.sub(a).normalize());
+    parent.add(mesh);
+  };
+  const rear = [0, BIKE_WHEEL, -0.52];
+  const front = [0, BIKE_WHEEL, 0.55];
+  const crank = [0, 0.3, 0];
+  const seat = [0, 0.82, -0.16];
+  const steer = [0, 0.86, 0.4];
+  // The frame, fork, stem and handlebars, and the saddle
+  for (const [a, b] of [[crank, seat], [seat, steer], [crank, steer], [crank, rear], [seat, rear]]) tube(a, b, 0.022, paint);
+  tube(steer, front, 0.02, paint);
+  tube(steer, [0, 1.0, 0.43], 0.018, dark);
+  tube([-0.3, 1.0, 0.43], [0.3, 1.0, 0.43], 0.016, dark);
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.25), dark);
+  saddle.position.set(0, 0.86, -0.18);
+  bike.add(saddle);
+  // Wheels with a few spokes, so you can see them turn
+  const wheels = [rear, front].map(at => {
+    const wheel = new THREE.Group();
+    wheel.position.set(...at);
+    wheel.add(new THREE.Mesh(new THREE.TorusGeometry(BIKE_WHEEL, 0.035, 6, 24).rotateY(Math.PI / 2), dark));
+    for (let i = 0; i < 3; i++) {
+      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.008, BIKE_WHEEL * 2, 0.008), dark);
+      spoke.rotation.x = (i / 3) * Math.PI;
+      wheel.add(spoke);
+    }
+    bike.add(wheel);
+    return wheel;
+  });
+  // The cranks and pedals
+  const cranks = new THREE.Group();
+  cranks.position.set(...crank);
+  for (const side of [1, -1]) {
+    const arm = new THREE.Group();
+    arm.position.x = side * 0.07;
+    arm.rotation.x = side > 0 ? 0 : Math.PI;
+    tube([0, 0, 0], [0, -0.17, 0], 0.012, dark, arm);
+    const pedal = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.02, 0.06), dark);
+    pedal.position.set(side * 0.04, -0.17, 0);
+    arm.add(pedal);
+    cranks.add(arm);
+  }
+  bike.add(cranks);
+  Object.assign(bike.userData, { wheels, cranks, along: 0, heading: 0, lean: 0 });
+  return bike;
+}
+const bikes = [makeBike(0x2f6fb0), makeBike(0xc0392b)];
+bikes.forEach(bike => {
+  castShadows(bike);
+  scene.add(bike);
+});
+// His (the first) parked in front, hers behind; on the way back hers leads
+const bikeTrip = { mode: "parked", day: -1, along: BIKE_GAP, speed: 0, crank: 0, time: 0, phase: "" };
+const bikeAhead = new THREE.Vector3();
+const bikeSpot = new THREE.Vector3();
+const bikeGrip = new THREE.Vector3();
+// Where along the route each bike is: his `along`, hers a bike's length behind (or ahead, coming back)
+function placeBikes(dt, direction) {
+  bikes.forEach((bike, i) => {
+    const b = bike.userData;
+    const along = clamp(bikeTrip.along - i * BIKE_GAP, 0, BIKE_ROUTE_LENGTH) / BIKE_ROUTE_LENGTH;
+    bikeRoute.getPointAt(along, bike.position);
+    bikeRoute.getTangentAt(along, bikeAhead);
+    if (i === 1) bike.position.add(bikeSpot.set(-bikeAhead.z, 0, bikeAhead.x).setLength(BIKE_STAGGER));
+    const heading = Math.atan2(bikeAhead.x, bikeAhead.z) + (direction < 0 ? Math.PI : 0);
+    // Leaning into the bends
+    const turn = dt > 0 ? turnTowards(b.heading, heading) / dt : 0;
+    b.lean += (clamp(-turn * bikeTrip.speed * 0.05, -0.3, 0.3) - b.lean) * easeFactor(dt, 3);
+    b.heading = heading;
+    bike.rotation.set(0, heading, b.lean, "YXZ");
+    // Wheels rolling and the pedals going round
+    for (const wheel of b.wheels) wheel.rotation.x += (bikeTrip.speed / BIKE_WHEEL) * dt;
+    b.cranks.rotation.x = bikeTrip.crank;
+  });
+}
+const bikesOut = () => bikeTrip.mode === "out" || bikeTrip.mode === "falls" || bikeTrip.mode === "back";
+// The bike out in front (his going, hers coming back), and the one behind
+const leadBike = () => bikes[bikeTrip.mode === "back" ? 1 : 0];
+const trailBike = () => bikes[bikeTrip.mode === "back" ? 0 : 1];
+placeBikes(0, 1);
+// Her phone, for the photo at the falls
+{
+  const her = campers[1];
+  const phone = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.13, 0.012), new THREE.MeshStandardMaterial({ color: 0x1e1e22, roughness: 0.4 }));
+  phone.position.set(0, -0.64, 0.05);
+  phone.visible = false;
+  her.userData.arms.find(arm => arm.side < 0).shoulder.add(phone);
+  her.userData.phone = phone;
+}
+// Each rider in the saddle, leaning over the bars, pedalling
+function poseRider(camper, bike, now) {
+  const c = camper.userData;
+  bike.updateMatrixWorld();
+  bike.localToWorld(bikeSpot.copy(BIKE_SADDLE));
+  camper.position.set(bikeSpot.x, bikeSpot.y + 0.04 - HIP_HEIGHT * camper.scale.y, bikeSpot.z);
+  camper.rotation.set(0, bike.userData.heading, bike.userData.lean);
+  c.body.position.y = 0;
+  c.upper.rotation.set(0.45, 0, 0);
+  c.legs.forEach(({ thigh, knee, phase }) => {
+    thigh.rotation.x = -0.75 + 0.35 * Math.sin(bikeTrip.crank + phase);
+    knee.rotation.x = 0.9 + 0.45 * Math.sin(bikeTrip.crank + phase - Math.PI / 2);
+  });
+  camper.updateMatrixWorld();
+  for (const { shoulder, side } of c.arms) {
+    c.upper.worldToLocal(bike.localToWorld(bikeGrip.copy(BIKE_GRIPS[side > 0 ? 0 : 1])));
+    armAim.setFromUnitVectors(ARM_DOWN, bikeGrip.sub(shoulder.position).normalize());
+    shoulder.quaternion.copy(armAim);
+  }
+  c.head.rotation.set(-0.35, 0, 0);
+}
+// Off the bikes at the falls: walking down to the pool's edge and back, or standing there, him pointing
+// out the falls and her taking a photo
+const FALLS_FACE = new THREE.Vector3(FALLS.x, groundY + FALLS.height * 0.5, FALLS.z);
+const fallsSpots = [new THREE.Vector3(0.6, groundY, -91.6), new THREE.Vector3(1.2, groundY, -92.4)];
+const bikeFacing = new THREE.Vector3();
+function poseAtFalls(camper, i, walk, dt) {
+  const c = camper.userData;
+  const bike = bikes[i];
+  // Getting off on the left of the bike, then down to the pool and back
+  bike.localToWorld(bikeSpot.set(-0.55, 0, -0.1)).setY(groundY);
+  const t = smootherstep(walk, 0, 1);
+  camper.position.lerpVectors(bikeSpot, fallsSpots[i], t);
+  const moving = walk > 0.02 && walk < 0.98 && bikeTrip.phase !== "watch";
+  const toward = bikeTrip.phase === "back" ? bikeSpot : fallsSpots[i];
+  const facing = moving ? bearing(camper.position, toward) : bearing(camper.position, FALLS_FACE);
+  camper.rotation.set(0, camper.rotation.y + turnTowards(camper.rotation.y, facing) * easeFactor(dt, 6), 0);
+  c.body.position.y = 0;
+  c.upper.rotation.set(0, 0, 0);
+  const stride = moving ? 1 : 0;
+  c.walkPhase += stride * dt * 5.5;
+  c.legs.forEach(({ thigh, knee, phase }) => {
+    thigh.rotation.x = Math.sin(c.walkPhase + phase) * 0.5 * stride;
+    knee.rotation.x = Math.max(-Math.cos(c.walkPhase + phase), 0) * 0.8 * stride;
+  });
+  camper.updateMatrixWorld();
+  const watching = bikeTrip.phase === "watch";
+  for (const { shoulder, side, phase } of c.arms) {
+    shoulder.quaternion.setFromEuler(armSwing.set(Math.sin(c.walkPhase + phase) * 0.45 * stride, 0, side * 0.08));
+    if (!watching || side > 0) continue;
+    if (i === 0) {
+      // Pointing at the falls
+      c.upper.worldToLocal(bikeFacing.copy(FALLS_FACE));
+      armAim.setFromUnitVectors(ARM_DOWN, bikeFacing.sub(shoulder.position).normalize());
+      shoulder.quaternion.copy(armAim);
+    } else shoulder.quaternion.setFromEuler(armSwing.set(-1.45, 0, 0.15)); // her phone held up
+  }
+  if (c.phone) c.phone.visible = watching;
+  c.upper.worldToLocal(bikeFacing.copy(FALLS_FACE)).sub(c.head.position);
+  c.head.rotation.set(watching ? -Math.atan2(bikeFacing.y, Math.hypot(bikeFacing.x, bikeFacing.z)) : 0, 0, 0);
+}
+function updateBikes(dt, now) {
+  const t = bikeTrip;
+  t.time += dt;
+  const [him, her] = campers;
+  if (t.mode === "parked") {
+    placeBikes(dt, 1);
+    if (t.day === day || hour < BIKE_HOURS.from || hour >= BIKE_HOURS.to) return;
+    const free = campers.every(camper => ["stand", "walk", "sit"].includes(camper.userData.state) && !camper.userData.abducted);
+    const fine = weather.phase === "clear" && weather.timer > 75 && canoeTrip.mode === "beached";
+    const bearAbout = bearState.atFalls || bearState.campVisit;
+    if (!free || !fine || ufoAbout()) return;
+    // Once a day, at most: whether to go is settled when they're first free to
+    t.day = day;
+    if (bearAbout || Math.random() > BIKE_CHANCE) return;
+    t.mode = "mounting";
+    campers.forEach((camper, i) => {
+      bikes[i].localToWorld(camper.userData.bikeMount.set(-0.55, 0, -0.1)).setY(groundY);
+      setCamperState(camper, "toBike");
+    });
+    return;
+  }
+  if (t.mode === "mounting") {
+    const states = campers.map(camper => camper.userData.state);
+    // Called off if either of them is sent elsewhere (the rain coming on, say)
+    if (states.some(state => state !== "toBike" && state !== "astride")) {
+      t.mode = "parked";
+      for (const camper of campers) if (camper.userData.state === "astride") setCamperState(camper, "walk");
+    } else if (states.every(state => state === "astride")) {
+      for (const camper of campers) setCamperState(camper, "riding");
+      Object.assign(t, { mode: "out", along: BIKE_GAP, speed: 0, time: 0 });
+    }
+    return;
+  }
+  if (t.mode === "out" || t.mode === "back") {
+    // Pushing off, cruising along and easing to a stop at the end
+    const direction = t.mode === "out" ? 1 : -1;
+    const left = direction > 0 ? BIKE_ROUTE_LENGTH - t.along : t.along - BIKE_GAP;
+    const wanted = Math.min(BIKE_SPEED, Math.max(left * 0.9, 0.4));
+    t.speed += (wanted - t.speed) * easeFactor(dt, 1.2);
+    t.along = clamp(t.along + direction * t.speed * dt, BIKE_GAP, BIKE_ROUTE_LENGTH);
+    t.crank += (t.speed / BIKE_WHEEL / 2.2) * dt;
+    placeBikes(dt, direction);
+    campers.forEach((camper, i) => poseRider(camper, bikes[i], now));
+    if (left < 0.05) {
+      t.speed = 0;
+      if (direction > 0) Object.assign(t, { mode: "falls", phase: "walk", time: 0 });
+      else {
+        // Home: off the bikes and back to camp life
+        t.mode = "parked";
+        campers.forEach((camper, i) => {
+          bikes[i].localToWorld(camper.position.set(-0.55, 0, -0.1)).setY(groundY);
+          camper.rotation.set(0, bikes[i].userData.heading, 0);
+          setCamperState(camper, "walk");
+        });
+      }
+    }
+    return;
+  }
+  // At the falls
+  const { walk, watch } = BIKE_AT_FALLS;
+  let progress = 1;
+  if (t.phase === "walk") {
+    progress = Math.min(t.time / walk, 1);
+    if (t.time >= walk) Object.assign(t, { phase: "watch", time: 0 });
+  } else if (t.phase === "watch") {
+    if (t.time >= watch) Object.assign(t, { phase: "back", time: 0 });
+  } else {
+    progress = 1 - Math.min(t.time / walk, 1);
+    if (t.time >= walk) Object.assign(t, { mode: "back", speed: 0, time: 0 });
+  }
+  campers.forEach((camper, i) => poseAtFalls(camper, i, progress, dt));
+}
+
 // On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
 // slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
 // cloud over they turn for home before the rain comes. They still stop to point at the eagle. On his
@@ -6027,7 +6283,7 @@ function updateCanoe(dt, now, night) {
     // Not on the floatplane's days, when the lake will be busy
     const fine = weather.phase === "clear" && weather.timer > 40 && planeState.mode === "away" && !planeDue();
     const free = states.every(state => !["inTent", "toTent", "toFish", "fishing"].includes(state));
-    if (t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free) {
+    if (t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free && bikeTrip.mode === "parked") {
       t.mode = "boarding";
       for (const camper of campers) setCamperState(camper, "toCanoe");
     }
@@ -6290,6 +6546,11 @@ function setCamperState(camper, state) {
     c.timer = 30;
   } else if (state === "boarding" || state === "inCanoe") {
     c.timer = Infinity; // the trip decides when they get out
+  } else if (state === "toBike") {
+    c.target.copy(c.bikeMount);
+    c.timer = 20;
+  } else if (state === "astride" || state === "riding") {
+    c.timer = Infinity; // the ride decides when they get off
   } else if (state === "toShore") {
     c.target.copy(LANTERN_SPOT);
     c.timer = 25;
@@ -6318,7 +6579,7 @@ function nextCamperState(camper) {
   else setCamperState(camper, "stand");
 }
 // What a camper does on reaching where it was walking to
-const CAMPER_ARRIVALS = { walk: "stand", toChair: "sit", toTent: "inTent", toCanoe: "boarding", toShore: "atShore", toFish: "fishing", toBlanket: "stargaze" };
+const CAMPER_ARRIVALS = { walk: "stand", toChair: "sit", toTent: "inTent", toCanoe: "boarding", toShore: "atShore", toFish: "fishing", toBlanket: "stargaze", toBike: "astride" };
 
 const eagleLocal = new THREE.Vector3();
 const lookLocal = new THREE.Vector3();
@@ -6460,6 +6721,7 @@ function updateCamp(dt, now) {
   const bedtime = stargazeTonight ? STARGAZE_BEDTIME : CAMP_BEDTIME;
   const night = hour >= bedtime || hour < SUNRISE;
   updateCanoe(dt, now, night);
+  updateBikes(dt, now);
   // The fire's lit at dusk and burns on through the night
   camp.fire += ((hour >= FIRE_HOUR || hour < SUNRISE ? 1 : 0) - camp.fire) * easeFactor(dt, 0.8);
   // The lamp is only lit after dark, not when they're sheltering from rain by day
@@ -6478,7 +6740,7 @@ function updateCamp(dt, now) {
   // (He's out before sunrise on his fishing mornings)
   const dawnFishing = camper => hour < SUNRISE && ["toFish", "fishing"].includes(camper.userData.state);
   for (const camper of campers) {
-    if (camper.userData.abducted) continue; // in the UFO's hands
+    if (camper.userData.abducted || camper.userData.state === "riding") continue; // in the UFO's hands, or out on the bikes
     updateCamper(camper, dt, now, (night && !dawnFishing(camper)) || weather.rain > CAMPER_SHELTER_RAIN || scared);
   }
   updateFishing(dt, now);
@@ -6841,7 +7103,7 @@ function updateRaccoon(dt, now) {
 }
 
 // A black bear. Every morning it comes out of the trees beyond the meadow and wades into the middle of
-// the stream to fish through the day: it stares into the water, swipes a paw down at a fish with a
+// the stream to fish through the day, facing down towards the lake: it stares into the water, swipes a paw down at a fish with a
 // splash or rears up and pounces on it with both paws, and now and then comes up with one and eats it.
 // Most days it fishes on until dusk, then heads back into the trees. On some days without the northern
 // lights (so it doesn't spoil the campers' night under them) it leaves the stream after lunch instead
@@ -7052,8 +7314,8 @@ function updateBear(dt, now) {
     rearing = b.reach && b.time > 1.5 && b.time < 4.5 ? 1 : 0;
     if (b.timer <= 0) bearToBush();
   } else if (b.mode === "fish") {
-    // Standing in the stream facing down towards the lake (or in the pool facing the falls): watching the
-    // water, then a swipe or a pounce
+    // Standing in the stream facing down towards the lake, or in the pool below the falls facing the
+    // waterfall: watching the water, then a swipe or a pounce
     b.heading = bearAtFalls() ? bearing(bear.position, FALLS) : bearing(bear.position, LAKE);
     const { catchFish } = bear.userData;
     if (b.phase === "watch" && b.timer <= 0) {
@@ -8395,6 +8657,16 @@ const watchers = {
   },
   osprey: { out: () => osprey.visible, anchor: () => LAKE_CENTRE, distance: 22, fov: 40, focus: out => out.copy(osprey.position) },
   hawk: { out: () => hawk.visible, anchor: () => hawkState.centre, distance: 20, fov: 38, focus: out => out.copy(hawk.position) },
+  bikes: {
+    out: () => bikesOut(), anchor: () => leadBike().position, distance: 12, fov: 40, maxSpeed: 7,
+    focus: out => out.copy(leadBike().position).setY(groundY + 1)
+  },
+  // Low down by the pool, looking up at the falls: the trees stand back from it, but the way there crosses
+  // them, so the glide arcs up over the treetops
+  fallsFoot: {
+    out: () => true, anchor: () => visitCentre.set(POOL.x, groundY, POOL.z), distance: 8, height: 2.5, fov: 50, overTrees: true,
+    focus: out => out.copy(FALLS_FOOT_LOOK)
+  },
   falls: {
     out: () => true, anchor: () => visitCentre.set(POOL.x, groundY, POOL.z), distance: 16, height: 10, fov: 36,
     focus: out => out.set(FALLS.x, groundY + FALLS.height * 0.5, FALLS.z)
@@ -8519,6 +8791,10 @@ function updateVisit(dt) {
   const late = smootherstep(p, 0.3, 1);
   const across = visit.rising ? late : early;
   lookAround.position.set(lerp(a.x, b.x, across), lerp(a.y, b.y, visit.rising ? early : late), lerp(a.z, b.z, across));
+  // (low watching spots on land arc up over the treetops on the way)
+  if (watchers[visit.to]?.overTrees || watchers[visit.from]?.overTrees) {
+    lookAround.position.y = Math.max(lookAround.position.y, groundY + VISIT_HEIGHT * Math.sin(Math.PI * p) ** 0.5);
+  }
   // The gaze turns to where it's heading well before it gets there
   legGaze(visit.from, legGazeFrom);
   legGaze(visit.to, legGazeTo);
@@ -8687,19 +8963,18 @@ function behindView(spot, back, up, { lean = 0.6, past } = {}) {
     else cycle.target.copy(at).addScaledVector(cycleAway, -past);
   };
 }
-// Chasing from just above and behind, the way it's heading, and looking on past it. The heading is
-// smoothed, so the camera swings round gently as it turns.
+// Chasing from just above and behind, the way it's heading, and looking on past it. The heading turns
+// smoothly, by angle (so it swings right round when the subject turns back the way it came).
 function chaseView(subject, back, up, ahead) {
+  let yaw = 0;
   const heading = new THREE.Vector3(0, 0, -1);
   return dt => {
     const object = subject();
     object.getWorldDirection(cycleAway).setY(0);
     if (cycleAway.lengthSq() > 1e-6) {
-      cycleAway.normalize();
-      if (cycle.fresh) heading.copy(cycleAway);
-      else heading.lerp(cycleAway, easeFactor(dt, 5));
-      if (heading.lengthSq() < 1e-6) heading.copy(cycleAway);
-      heading.normalize();
+      const wanted = Math.atan2(cycleAway.x, cycleAway.z);
+      yaw = cycle.fresh ? wanted : yaw + turnTowards(yaw, wanted) * easeFactor(dt, 5);
+      yawVector(yaw, heading);
     }
     cycle.eye.copy(object.position).addScaledVector(heading, -back).y = object.position.y + up;
     keepAboveGround(cycle.eye);
@@ -8761,6 +9036,14 @@ function ufoView() {
   if (ufoState.mode === "leave") cycle.target.copy(ufo.position);
   else cycle.target.lerpVectors(ufo.position, ufoState.spotAt, 0.4);
 }
+// The foot of the falls, from low down beside the pool: the falling water, the leaping fish and the ferns
+// (and the bear, on its days there)
+const FALLS_FOOT_WATCH = new THREE.Vector3(FALLS.x + 6, groundY + 2.4, FALLS.z + 9);
+const FALLS_FOOT_LOOK = new THREE.Vector3(FALLS.x, groundY + 3, FALLS.z + 0.5);
+function fallsFootView() {
+  cycle.eye.copy(FALLS_FOOT_WATCH);
+  cycle.target.copy(FALLS_FOOT_LOOK);
+}
 // The frog being watched, kept while it's on its pad
 function watchedFrog() {
   if (!cycle.frog || !cycle.frog.visible) cycle.frog = firstVisible(frogs) || null;
@@ -8794,6 +9077,7 @@ const CYCLE_VIEWS = [
       return tentFrame;
     }
   },
+  { name: "The bike ride", priority: true, dash: true, hold: () => bikesOut(), present: () => bikesOut(), place: chaseView(() => trailBike(), 5, 3, 7) }, // (behind the one at the back, so both are in view)
   { name: "Behind the raccoon", present: () => raccoon.visible, place: behindView(() => raccoon.position, 3, 2, { past: 3 }) },
   { name: "Behind the deer", present: () => true, place: behindView(() => centreOf(herd, herdCentre), 8, 5), frame: () => herd.map(deer => deer.position) },
   { name: "Behind the fox", present: () => fox.visible, place: behindView(() => fox.position, 5, 2.5, { past: 5 }) },
@@ -8808,42 +9092,59 @@ const CYCLE_VIEWS = [
   { name: "Vulture’s-eye", ride: true, present: () => vultures.some(vulture => vulture.visible), place: eyeView(() => firstVisible(vultures), new THREE.Vector3(0, 0.04, 0.36), { clear: 1 }) },
   { name: "Behind the osprey", present: () => osprey.visible, place: behindView(() => osprey.position, 8, 3) },
   { name: "Behind the red-tailed hawk", present: () => hawk.visible, place: behindView(() => hawk.position, 9, 3) },
+  { name: "At the foot of the falls", present: () => true, place: fallsFootView },
   { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) }
 ];
-// The UFO is too good to miss: whatever the camera's doing, it dashes over to the UFO's view (as Cycle
-// view does) and stays for the whole visit, then goes back to what it was doing. A press of C hands over
-// to Cycle view proper; F, E, L or R to that mode.
-const UFO_VIEW = CYCLE_VIEWS.findIndex(view => view.name === "The UFO");
-// `waved off`: the camera was taken elsewhere during this visit, so it's left there until the next
-const ufoWatch = { active: false, wavedOff: false };
-function updateUfoWatch() {
-  const view = CYCLE_VIEWS[UFO_VIEW];
-  if (!view.present()) ufoWatch.wavedOff = false;
-  if (ufoWatch.active) {
-    if (!cycle.on) Object.assign(ufoWatch, { active: false, wavedOff: true }); // handed over to another mode
-    else if (cycle.index !== UFO_VIEW) {
-      // Moved on with C: carry on in Cycle view
-      Object.assign(ufoWatch, { active: false, wavedOff: true });
-      cycleButton.setAttribute("aria-pressed", "true");
-      setFollow(false);
-      setEagleEye(false);
-      setLookAround(false);
-    } else if (!view.present()) {
-      // Gone: back to whatever the camera was doing
-      ufoWatch.active = false;
-      cycle.on = false;
-      viewName.hidden = true;
-    }
-    return;
-  }
-  if (cycle.on || !view.present() || ufoWatch.wavedOff) return;
-  ufoWatch.active = true;
+// Some things are too good to miss: whatever the camera's doing, when the UFO comes, or the campers set
+// off on their bikes, it flies over to that view (as Cycle view does) and stays for the whole of it, then
+// goes back to what it was doing. The UFO comes first, if both are about. A press of C hands over to Cycle
+// view proper; F, E, L or R to that mode, and the camera's left there for the rest of it.
+const TAKEOVERS = [
+  { view: CYCLE_VIEWS.findIndex(view => view.name === "The UFO"), label: "Watching the UFO" },
+  { view: CYCLE_VIEWS.findIndex(view => view.name === "The bike ride"), label: "Following the bike ride" }
+];
+// `waved off`: the camera was taken elsewhere during it, so it's left there until next time
+for (const takeover of TAKEOVERS) takeover.wavedOff = false;
+let takenOver = null;
+function takeOver(takeover) {
+  takenOver = takeover;
   cycle.on = true;
   cycle.shown.valid = false; // fly from wherever the camera is now
   cycle.resumeAfter = null;
-  showCycleView(UFO_VIEW);
-  viewName.textContent = "Watching the UFO";
+  showCycleView(takeover.view);
+  viewName.textContent = takeover.label;
   viewName.hidden = false;
+}
+function updateTakeovers() {
+  for (const takeover of TAKEOVERS) if (!CYCLE_VIEWS[takeover.view].present()) takeover.wavedOff = false;
+  const wanted = TAKEOVERS.find(takeover => CYCLE_VIEWS[takeover.view].present() && !takeover.wavedOff);
+  if (takenOver) {
+    const current = takenOver;
+    if (!cycle.on) {
+      // Handed over to another mode
+      current.wavedOff = true;
+      takenOver = null;
+    } else if (cycle.index !== current.view) {
+      const other = TAKEOVERS.find(takeover => takeover.view === cycle.index);
+      if (other) takeOver(other); // (the UFO turning up in the middle of a bike ride)
+      else {
+        // Moved on with C: carry on in Cycle view
+        current.wavedOff = true;
+        takenOver = null;
+        cycleButton.setAttribute("aria-pressed", "true");
+        setFollow(false);
+        setEagleEye(false);
+        setLookAround(false);
+      }
+    } else if (!CYCLE_VIEWS[current.view].present()) {
+      // Over: back to whatever the camera was doing
+      takenOver = null;
+      cycle.on = false;
+      viewName.hidden = true;
+    } else if (wanted && wanted !== current && TAKEOVERS.indexOf(wanted) < TAKEOVERS.indexOf(current)) takeOver(wanted);
+    return;
+  }
+  if (!cycle.on && wanted) takeOver(wanted);
 }
 // The field of view that just keeps these points in frame, looking along `direction` from `from`
 const CYCLE_FRAME_BELOW = 1.6; // how much more room to leave below the middle of the view than above
@@ -8987,8 +9288,9 @@ function updateCamera(dt) {
     camera.position.lerp(lookAround.position, lookAround.weight);
     camera.quaternion.slerp(lookAround.facing, lookAround.weight);
   }
-  // Cycle view: flying to each vantage point in turn, then riding along there (or to the UFO, in any mode)
-  updateUfoWatch();
+  // Cycle view: flying to each vantage point in turn, then riding along there (or to the UFO or the bike
+  // ride, in any mode)
+  updateTakeovers();
   updateCycleView(dt);
   let cycleFov = cycle.fov;
   if (cycle.on) {

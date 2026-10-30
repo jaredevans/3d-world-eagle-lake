@@ -43,20 +43,22 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 8. Behind a frog on its lily pad
 9. Dragonfly's-eye
 10. Behind the camp
-11. Behind the raccoon
-12. Behind the deer
-13. Behind the fox
-14. Behind the owl, chasing it
-15. The comet, from the near shore across the lake, on comet evenings
-16. The UFO, from the shore just behind the starting view, then from over the water off the camp as it takes a camper; it stays on the UFO for its whole visit
-17. Behind the beavers
-18. Behind the otters
-19. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
-20. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
-21. Vulture's-eye
-22. Behind the osprey
-23. Behind the red-tailed hawk
-24. Above the falls
+11. The bike ride, following the campers from behind (on the days they ride to the falls)
+12. Behind the raccoon
+13. Behind the deer
+14. Behind the fox
+15. Behind the owl, chasing it
+16. The comet, from the near shore across the lake, on comet evenings
+17. The UFO, from the shore just behind the starting view, then from over the water off the camp as it takes a camper; it stays on the UFO for its whole visit
+18. Behind the beavers
+19. Behind the otters
+20. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
+21. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
+22. Vulture's-eye
+23. Behind the osprey
+24. Behind the red-tailed hawk
+25. At the foot of the falls, low down by the pool
+26. Above the falls
 
 The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane and the owl are chased from just above and behind, the way they're heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane, the balloon and the UFO take priority: when one turns up, the camera drops what it's watching and flies straight to it, dashing over to the balloon or the UFO in a couple of seconds so as not to miss them. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached one of them in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
@@ -89,7 +91,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 - **River otters:** a pair porpoise and chase each other round the left half of the lake by day, rolling over as they go. Every so often they haul out together on a rock to rest, one grooming while the other looks about.
 - **Painted turtles:** a row of them basks on a half-sunk log off the near shore on fine days. When anything swims or wades close, or the eagle swoops low, they slide off one by one with a plop and climb back out a while later.
 - **Belted kingfisher:** watches from a dead stick in the shallows of the far shore. It flies out with a rattling call to hover over the water, plunges in head first and flies back, sometimes with a minnow, which it beats on the perch before swallowing it.
-- **Black bear:** every morning it comes out of the trees beyond the meadow and wades into the middle of the stream to fish. It stares into the water, swipes a paw down with a splash or rears up and pounces with both front paws, and now and then comes up with a fish and eats it. On about half its days it fishes the pool at the foot of the waterfall instead, standing in the shallows facing the falls, its head following each fish up as it leaps, and now and then swiping one out of the air. It fishes until dusk, then ambles back into the trees. On some days (never before stargazing nights) it leaves the stream after lunch instead and crosses the meadow to the berry bushes behind the camp, sometimes rearing up on its hind legs to reach, and in the evening wanders on into the camp.
+- **Black bear:** every morning it comes out of the trees beyond the meadow and wades into the middle of the stream to fish, facing down towards the lake. It stares into the water, swipes a paw down with a splash or rears up and pounces with both front paws, and now and then comes up with a fish and eats it. On about half its days it fishes the pool at the foot of the waterfall instead, standing in the shallows facing the falls, its head following each fish up as it leaps, and now and then swiping one out of the air. It fishes until dusk, then ambles back into the trees. On some days (never before stargazing nights) it leaves the stream after lunch instead and crosses the meadow to the berry bushes behind the camp, sometimes rearing up on its hind legs to reach, and in the evening wanders on into the camp.
 - **Wolves:** never seen, but on some nights a pack howls from the hills behind the lake, and the deer stop and lift their heads to listen.
 - **Chipmunks:** two dash about the camp by day, stopping to sit up and look about, and scurrying out from under the campers' feet.
 - **Pileated woodpecker:** works its way up the dead snag by day in short hops, hammering at the wood and now and then drumming, then swoops back to the foot of the trunk to start again. It keeps clear while the eagle is on the snag.
@@ -111,6 +113,7 @@ A man and a woman are camping on the right-hand shore. Their camp has an orange 
 
 - **By day:** they sit in their chairs or wander around the tent and fire pit. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views. When the hot-air balloon comes over they point it out too, she first and then he, unless he's busy fishing.
 - **Fishing:** on dry mornings he's up at first light, before sunrise and before she is, and takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back.
+- **The bike ride:** two bikes stand beside the tent. On some fine mornings (a canoe day or a bike day, not both), they walk over, get on and ride off along the camp's side of the meadow, round past the berry bushes and clear of the stream, to the pool at the foot of the waterfall, riding a little to one side of each other. There they get off and walk down to the pool's edge: he points out the falls and the leaping fish while she holds up her phone for a photo. Then they ride back, home by late afternoon in good time for the fire. They don't go if the weather's about to turn, or on days the bear is at the falls or coming over to the camp.
 - **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings (but not when the floatplane's due) they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. On his fishing mornings they wait till he's finished. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
 - **Evening:** they light the fire at dusk and sit round it toasting marshmallows, which turn from white to golden brown. Smoke rises from the fire and leans with the wind, and lingers in the morning as the embers die.
@@ -138,7 +141,7 @@ On about one night in five (never in the first few), at any time from the camper
 - The sky shifts through pre-dawn, pink dawn, blue midday, golden dusk and deep night.
 - At dawn, mist hangs over the lake and burns off as the sun climbs. By day, sunbeams slant down from the clouds and cloud shadows drift across the land, and now and then an airliner crosses high in the sky, a glint of sun on a tiny speck drawing a white trail. In dry air the trail is short and soon gone; ahead of rain it lingers and spreads into a broad soft streak. At dawn and dusk the trails glow pink.
 - At night, stars come out along with shooting stars and fireflies. About one night in three brings a meteor shower, a shooting star every second or so, all streaking out from one point low in the sky in front of the starting view (the clock line says when). Most shooting stars, shower or not, streak across the lower sky in front of the starting view, where they're in frame. In the hours after dusk and before dawn, satellites glide steadily across the sky, some fading out partway as they pass into the Earth's shadow. The moon moves through its phases over eight days and lays a glittering path across the lake. The northern lights appear on the first night and on about half of the nights after, behind the starting view.
-- Now and then a comet comes for four nights running, brightening to the third and fading on the fourth. It hangs low in the west after dusk, to the right of the starting view where the sun has gone down, and sets a few hours later. Its tails stream up and away from the sun: a broad, gently curving, creamy dust tail and a thin, straight, bluish ion tail. Twilight, moonlight and cloud wash it out, and the clock line says when it's out.
+- Now and then a comet comes for four nights running, brightening to the third and fading on the fourth. It hangs low in the west after dusk, to the right of the starting view where the sun has gone down, and sets a few hours later. Its head glows golden yellow, and its tails stream up and away from the sun: a broad, gently curving dust tail and a thin, straight ion tail, both golden too. Twilight, moonlight and cloud wash it out, and the clock line says when it's out.
 
 ### Weather
 
