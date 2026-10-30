@@ -70,12 +70,14 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 - **Great horned owl:** glides a slow loop along the treeline behind the lake after dark.
 - **Bats:** flit low over the lake from dusk into the early night.
 - **Distant birds:** small flocks in V formation cross the sky.
+- **Turkey vultures:** on fine days, a kettle of four glides in over the far side of the valley in the late morning and circles slowly upward on warm rising air, wings held in a shallow V, teetering from side to side and drifting with the breeze. In the late afternoon, as the thermals die (or sooner if the weather turns), they peel off one by one and glide away. They're silent.
+- **Red-tailed hawk:** on fine days it circles on its own over the deer meadow, lower than the vultures, giving its hoarse, falling scream. If the eagle comes too close it makes off with a scream and a burst of wingbeats.
 
 ### The campsite
 
 A man and a woman are camping on the right-hand shore. Their camp has an orange ridge tent, two folding chairs and a stone fire pit.
 
-- **By day:** they sit in their chairs or wander around the tent and fire pit. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views.
+- **By day:** they sit in their chairs or wander around the tent and fire pit. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views. When the hot-air balloon comes over they point it out too, she first and then he, unless he's busy fishing.
 - **Fishing:** on dry mornings he's up at first light, before sunrise and before she is, and takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back.
 - **The canoe:** a red canoe is pulled up on the shore below the camp. On calm, clear mornings (but not when the floatplane's due) they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. On his fishing mornings they wait till he's finished. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
@@ -89,16 +91,21 @@ A man and a woman are camping on the right-hand shore. Their camp has an orange 
 
 Every other afternoon, starting with the first, a red and white floatplane appears over the crest of a foothill ahead and to the right, comes in low over the trees and roars along the lake a few metres up, sending the ducks paddling off and the loon, beavers and otters diving. It climbs away into a wide, banking circuit round the far side, lines up over the trees again and touches down in bursts of spray, then slows to a stop. It sits a while with its propeller ticking over, swings round on the water, then roars off back the way it came, climbs away over the trees and drops out of sight behind the foothill. If it's raining when it's due, it comes the next afternoon instead. The campers leave the canoe ashore on its days, and the eagle doesn't fish and the loon doesn't take off while it's on the lake. In Look around, the camera turns to watch it as it comes close and slows on its path to follow the whole visit. It rises well above the lane along the lake where the plane flies low, so the plane passes beneath it. When the plane's gone, the camera sinks back down and turns back to the tour.
 
+### The hot-air balloon
+
+On calm mornings (the first, then about every other one) a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars now and then in a flare of flame that lights the envelope from inside, which shows best in the dim early light. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
+
 ### Day and night
 
 - The sun rises at 06:00 behind the left hills and sets at 20:00 behind the right hills. Daylight lasts about 70 seconds and a full day about a minute and a half. The deep night passes faster once the campers have turned in, so on northern-lights nights, when they stay up late, the night lasts a few seconds longer. The page opens at 05:36, just before dawn.
 - The sky shifts through pre-dawn, pink dawn, blue midday, golden dusk and deep night.
-- At dawn, mist hangs over the lake and burns off as the sun climbs. By day, sunbeams slant down from the clouds and cloud shadows drift across the land.
-- At night, stars come out along with shooting stars and fireflies. About one night in three brings a meteor shower, a shooting star every second or so, all streaking out from one point high in the sky in front of the starting view (the clock line says when). In the hours after dusk and before dawn, satellites glide steadily across the sky, some fading out partway as they pass into the Earth's shadow. The moon moves through its phases over eight days and lays a glittering path across the lake. The northern lights appear on the first night and on about half of the nights after, behind the starting view.
+- At dawn, mist hangs over the lake and burns off as the sun climbs. By day, sunbeams slant down from the clouds and cloud shadows drift across the land, and now and then an airliner crosses high in the sky, a glint of sun on a tiny speck drawing a white trail. In dry air the trail is short and soon gone; ahead of rain it lingers and spreads into a broad soft streak. At dawn and dusk the trails glow pink.
+- At night, stars come out along with shooting stars and fireflies. About one night in three brings a meteor shower, a shooting star every second or so, all streaking out from one point low in the sky in front of the starting view (the clock line says when). Most shooting stars, shower or not, streak across the lower sky in front of the starting view, where they're in frame. In the hours after dusk and before dawn, satellites glide steadily across the sky, some fading out partway as they pass into the Earth's shadow. The moon moves through its phases over eight days and lays a glittering path across the lake. The northern lights appear on the first night and on about half of the nights after, behind the starting view.
 
 ### Weather
 
 - Long clear spells, now and then clouding over into light rain or a thunderstorm.
+- A few hours before the rain, thin high cloud spreads in: a milky veil with long fibrous wisps that takes the edge off the blue and the sun. A 22° halo forms round the sun in the ice crystals, and while the sun is fairly low, sundogs shine level with it on either side, red towards the sun with white tails. The clock line says "High cloud" or "Halo round the sun".
 - Rain falls in slanting streaks and makes rings on the lake. The grass and trees sway harder in the wind.
 - Lightning strikes whenever it rains and most often in a thunderstorm. Each strike is a forked bolt with a double flash across the sky, followed by thunder.
 - A rainbow appears as the rain clears.
@@ -108,6 +115,7 @@ Every other afternoon, starting with the first, a red and white floatplane appea
 - A lake that reflects the sky and scenery, broken up by moving ripples. The sun and moon glint on the water.
 - A waterfall straight ahead of the starting view, pouring off a rocky crag at the foot of a bluff beyond the deer meadow, with spray rising from its pool. On sunny afternoons a small rainbow hangs in the spray. Its stream winds down through the meadow between reeds, carrying streaks of foam, and runs into the far shore of the lake beside the beavers' lodge.
 - A meadow of around 41,000 grass blades and 4,500 wildflowers, with reeds and cattails along the shore.
+- A great snow-capped volcano rising far beyond the foothills, a little right of the starting view, reflected in the lake. Dark rock ridges streak down through its snow and glaciers reach down its gullies, with a lesser peak on its shoulder. Its snow catches the sun before the valley does at dawn and keeps it after sunset, flushing pink, and through the day it glistens as tiny ice facets flash in the sunlight. Haze from the sky behind it softens it, most of all low down, and it disappears altogether when the weather closes in.
 - Trees, boulders and hills all round, so there's scenery whichever way you look. The layout is generated from a fixed seed, so it's the same on every load.
 
 ### Sound
@@ -119,8 +127,9 @@ All sound is generated in the browser with the Web Audio API; there are no audio
 - **Day and night:** birdsong while the sun is up and it's dry. After dark there are crickets, frogs and the owl's hoot. The frogs on the lily pads croak in time with their puffing throats.
 - **The loon:** its long, rising, quavering wail at dusk and through the night (and sometimes at dawn), echoing across the lake. It gives its rapid tremolo when it's alarmed and when it takes off.
 - **The nest:** the eaglets peep while they're begging, and the mate calls when the eagle brings food in.
-- **More wildlife:** the osprey's whistled call, the kingfisher's dry rattle, the crack of a beaver's tail slap echoing across the lake, the woodpecker's drumming, the clatter of the raccoon at the cooler, and on some nights a distant wolf pack howling.
+- **More wildlife:** the osprey's whistled call, the kingfisher's dry rattle, the crack of a beaver's tail slap echoing across the lake, the woodpecker's drumming, the clatter of the raccoon at the cooler, the red-tailed hawk's scream, and on some nights a distant wolf pack howling.
 - **The floatplane:** the drone of its engine, rising to a roar for takeoff.
+- **Overhead:** the breathy roar of the balloon's burner, and the faint far-off rumble of airliners crossing high in the sky.
 - **Events:** the eagle's high chatter when it dives or gives chase, and splashes from catches, leaping fish and the heron. Thunder follows lightning after a delay that's longer for distant strikes.
 
 ## Accessibility

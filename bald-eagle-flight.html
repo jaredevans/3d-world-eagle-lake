@@ -134,7 +134,7 @@ h1 {
 @media (hover: none) { .dock kbd { display: none; } }
 </style>
 
-<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
+<canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again, and on calm mornings a hot-air balloon drifts across the valley, its burner flaring. A great snow-capped mountain rises beyond the foothills, its snow glistening in the sun and flushing pink at dawn and dusk. On fine days turkey vultures circle up on rising warm air, a red-tailed hawk circles screaming over the meadow, and airliners draw contrails across the sky that linger when rain is on the way, after high cloud brings a halo and sundogs round the sun. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
 
 <div class="card">
   <p class="eyebrow">American bald eagle · <i>Haliaeetus leucocephalus</i></p>
@@ -213,12 +213,40 @@ camera.lookAt(HOME_TARGET);
 // Sky colour for a view direction, shared by the sky dome and the lake
 const SKY_GLSL = `uniform vec3 top; uniform vec3 mid; uniform vec3 horizon; uniform vec3 sunColor; uniform vec3 sunDir;
   uniform float sunVis; uniform vec3 moonDir; uniform float moonVis; uniform float moonPhase; uniform float moonLit;
+  uniform float haze; uniform vec3 cirrusColor; uniform float skyTime; uniform float halo; uniform float sundogs; uniform float sundogGap;
+  float skyHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float skyNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(skyHash(i), skyHash(i + vec2(1.0, 0.0)), f.x), mix(skyHash(i + vec2(0.0, 1.0)), skyHash(i + vec2(1.0, 1.0)), f.x), f.y);
+  }
   vec3 skyColor(vec3 dir) {
     vec3 col = mix(horizon, mid, smoothstep(0.02, 0.22, dir.y));
     col = mix(col, top, smoothstep(0.18, 0.65, dir.y));
     float s = max(dot(dir, sunDir), 0.0);
     col += sunColor * (pow(s, 6.0) * 0.35 + pow(s, 80.0) * 0.6);
     col = mix(col, vec3(1.0, 0.93, 0.75), smoothstep(0.9992, 0.9995, s) * sunVis);
+    // High cloud ahead of rain: a thin milky veil with long fibrous wisps drifting through it
+    if (haze > 0.001 && dir.y > 0.0) {
+      vec2 p = dir.xz / (dir.y + 0.15) * 2.0 + vec2(skyTime * 0.02, skyTime * 0.006);
+      vec2 q = vec2(p.x * 0.4, p.y * 3.5 + sin(p.x * 0.7) * 0.8);
+      float n = skyNoise(q) * 0.55 + skyNoise(q * 2.3 + 7.1) * 0.3 + skyNoise(q * 5.7 + 3.3) * 0.15;
+      col = mix(col, cirrusColor, haze * (0.16 + 0.5 * smoothstep(0.42, 0.78, n)) * smoothstep(0.0, 0.12, dir.y));
+    }
+    // Ice crystals in the veil make a 22° halo round the sun, with a sharp reddish inner edge and the
+    // sky just inside it a shade darker, and sundogs level with the sun either side of it: red towards
+    // the sun, with a white tail pointing away
+    if (halo > 0.001) {
+      float a = acos(clamp(dot(dir, sunDir), -1.0, 1.0));
+      col *= 1.0 - 0.06 * halo * smoothstep(0.2, 0.37, a) * (1.0 - smoothstep(0.37, 0.386, a));
+      float ring = smoothstep(0.374, 0.386, a) * exp(-max(a - 0.386, 0.0) / 0.022);
+      col += mix(vec3(1.0, 0.72, 0.55), vec3(0.95, 0.97, 1.0), smoothstep(0.386, 0.42, a)) * ring * halo * 0.1;
+      float dy = asin(clamp(dir.y, -1.0, 1.0)) - asin(clamp(sunDir.y, -1.0, 1.0));
+      float da = a - sundogGap;
+      float dog = exp(-da * da / 0.00025 - dy * dy / 0.0012) + step(0.0, da) * exp(-da / 0.05 - dy * dy / 0.0003) * 0.3;
+      col += mix(vec3(1.0, 0.55, 0.35), vec3(0.9, 0.93, 1.0), smoothstep(-0.01, 0.02, da)) * dog * sundogs * 0.35;
+    }
     float m = max(dot(dir, moonDir), 0.0);
     col += vec3(0.5, 0.58, 0.78) * pow(m, 40.0) * 0.22 * moonVis * moonLit;
     // Moon disc shaded as a sphere, lit from the side its phase puts the sun on
@@ -244,7 +272,13 @@ const skyUniforms = {
   moonDir: { value: MOON_DIR },
   moonVis: { value: 0 },
   moonPhase: { value: MOON_START_PHASE },
-  moonLit: { value: 1 }
+  moonLit: { value: 1 },
+  haze: { value: 0 },
+  cirrusColor: { value: new THREE.Color(0xffffff) },
+  skyTime: { value: 0 },
+  halo: { value: 0 },
+  sundogs: { value: 0 },
+  sundogGap: { value: 0.384 }
 };
 
 // Drifting cloud shadows: a soft noise pattern projected along the sun onto the ground, hills and
@@ -293,6 +327,9 @@ const skyDome = new THREE.Mesh(
       void main() { gl_FragColor = vec4(skyColor(normalize(vDir)), 1.0); }`
   })
 );
+// Drawn first, so the mountain shows in front of it even from the far side of the landscape, where the
+// mountain is further off than the dome
+skyDome.renderOrder = -1;
 scene.add(skyDome);
 
 const skyLight = new THREE.HemisphereLight(0xf2c6a8, 0x4a3a40, 0.85);
@@ -491,6 +528,108 @@ HILLS.forEach(([x, z, r]) => {
   scene.add(hill);
 });
 addCloudShadows(hillMat);
+
+// A great snow-capped volcano far beyond the foothills, a little right of the starting view. It's too far
+// off for the fog, so it has its own haze, taken from the sky behind it: thickest low down, and hiding it
+// altogether when the weather closes in. Its snow catches the first and last of the sun, flushing pink at
+// dawn and dusk, and glistens through the day as tiny ice facets flash in the sunlight.
+// (far enough back that the floatplane's way in, from behind the foothill, clears its lower slopes)
+const MOUNTAIN = { x: 60, z: -600, radius: 330, height: 175 };
+function mountainGeometry() {
+  const random = mulberry32(23);
+  const RINGS = 44;
+  const SEGMENTS = 120;
+  // Ridges and gullies running down the flanks (whole numbers of waves, so they meet up all the way round)
+  const waves = [[5, 0.5], [9, 0.35], [17, 0.25], [29, 0.15]].map(([k, size]) => [k, size, random() * Math.PI * 2]);
+  const ridge = angle => waves.reduce((sum, [k, size, phase]) => sum + size * Math.sin(k * angle + phase), 0);
+  // A lesser peak on the shoulder, on the side facing the lake and a little to the left
+  const shoulderAngle = Math.atan2(-MOUNTAIN.z, -MOUNTAIN.x) + 0.5;
+  const positions = [];
+  const snow = [];
+  const downhill = [];
+  const add = (u, angle) => {
+    const r = ridge(angle);
+    // A broad, rounded summit dome over long flanks
+    const smooth = u * u * (3 - 2 * u);
+    let h = lerp(1 - smooth, (1 - u) ** 1.8, 0.3) - 0.04 * Math.exp(-((u / 0.05) ** 2));
+    h += 0.06 * r * Math.sin(Math.PI * Math.min(u * 1.3, 1)) ** 0.7;
+    h += 0.1 * Math.exp(-(((u - 0.38) / 0.07) ** 2) - (turnTowards(shoulderAngle, angle) / 0.12) ** 2);
+    positions.push(MOUNTAIN.x + Math.cos(angle) * u * MOUNTAIN.radius, groundY + h * MOUNTAIN.height, MOUNTAIN.z + Math.sin(angle) * u * MOUNTAIN.radius);
+    // Snow down to a wavering line, reaching further down the gullies as glaciers, with bare rock ridges
+    // (cleavers) streaking down through it
+    const snowLine = 0.5 + 0.05 * Math.sin(3 * angle + 1) - 0.12 * Math.min(r, 0);
+    const cleaver = smoothstep(r, 0.35, 0.6) * smoothstep(u, 0.12, 0.25);
+    snow.push(0.5 + (snowLine - u) * 4 - cleaver * 1.2);
+    downhill.push(u);
+  };
+  add(0, 0);
+  for (let j = 1; j <= RINGS; j++) {
+    for (let i = 0; i < SEGMENTS; i++) add((j / RINGS) ** 1.3, (i / SEGMENTS) * Math.PI * 2);
+  }
+  const index = [];
+  const at = (j, i) => 1 + (j - 1) * SEGMENTS + (i % SEGMENTS);
+  for (let i = 0; i < SEGMENTS; i++) index.push(0, at(1, i + 1), at(1, i));
+  for (let j = 1; j < RINGS; j++) {
+    for (let i = 0; i < SEGMENTS; i++) index.push(at(j, i), at(j, i + 1), at(j + 1, i), at(j, i + 1), at(j + 1, i + 1), at(j + 1, i));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("snow", new THREE.Float32BufferAttribute(snow, 1));
+  geo.setAttribute("downhill", new THREE.Float32BufferAttribute(downhill, 1));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  return geo;
+}
+const mountainUniforms = {
+  ...skyUniforms,
+  ambient: { value: new THREE.Color() },
+  sunLight: { value: new THREE.Color() },
+  moonLight: { value: new THREE.Color() },
+  mountainHaze: { value: 0.3 }
+};
+const mountain = new THREE.Mesh(mountainGeometry(), new THREE.ShaderMaterial({
+  uniforms: mountainUniforms,
+  vertexShader: `attribute float snow; attribute float downhill;
+    varying vec3 vWorld; varying vec3 vNormal; varying float vSnow; varying float vDownhill;
+    void main() {
+      vec4 world = modelMatrix * vec4(position, 1.0);
+      vWorld = world.xyz;
+      vNormal = normalize(mat3(modelMatrix) * normal);
+      vSnow = snow;
+      vDownhill = downhill;
+      gl_Position = projectionMatrix * viewMatrix * world;
+    }`,
+  fragmentShader: `${SKY_GLSL}
+    uniform vec3 ambient; uniform vec3 sunLight; uniform vec3 moonLight; uniform float mountainHaze;
+    varying vec3 vWorld; varying vec3 vNormal; varying float vSnow; varying float vDownhill;
+    float facetHash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+    void main() {
+      vec3 n = normalize(vNormal);
+      // Snow with a ragged edge, bare rock where it's too steep to hold, and forest on the lower slopes
+      float snowy = smoothstep(0.42, 0.58, vSnow + (skyNoise(vWorld.xz * 0.06) - 0.5) * 0.35) * smoothstep(0.55, 0.75, n.y);
+      vec3 rock = mix(vec3(0.27, 0.27, 0.3), vec3(0.18, 0.24, 0.18), smoothstep(0.55, 0.8, vDownhill));
+      vec3 col = mix(rock, vec3(0.92, 0.94, 0.98), snowy);
+      // The summit sees the sun a little before the valley does, and keeps it a little after
+      float sunReach = smoothstep(-0.02 - 0.06 * (1.0 - vDownhill), 0.08, sunDir.y);
+      col *= ambient + sunLight * max(dot(n, sunDir), 0.0) * sunReach + moonLight * max(dot(n, moonDir), 0.0);
+      // Alpenglow: the snow flushes pink as the sun goes down (and comes up)
+      float glow = smoothstep(-0.09, -0.02, sunDir.y) * (1.0 - smoothstep(0.02, 0.1, sunDir.y));
+      col += vec3(1.0, 0.45, 0.55) * glow * snowy * (1.0 - vDownhill) * 0.35 * sunVis;
+      // Glistening: each little patch of snow holds an ice facet tilted its own way, which flashes
+      // when the sun lines up with it
+      vec3 cellPos = vWorld / 2.5;
+      vec3 cell = floor(cellPos);
+      vec3 facet = normalize(n + (vec3(facetHash(cell + 1.3), facetHash(cell + 2.7), facetHash(cell + 4.1)) - 0.5) * 1.6);
+      float flash = pow(max(dot(reflect(-sunDir, facet), normalize(cameraPosition - vWorld)), 0.0), 60.0);
+      float speck = 1.0 - smoothstep(0.12, 0.3, length(fract(cellPos) - 0.5));
+      col += sunLight * flash * speck * step(0.5, facetHash(cell)) * snowy * sunReach * sunVis * 3.0;
+      // Haze: the sky's own colour behind it, without the sun's disc
+      vec3 dir = normalize(vWorld - cameraPosition);
+      vec3 air = mix(horizon, mid, smoothstep(0.02, 0.22, dir.y)) + sunColor * pow(max(dot(dir, sunDir), 0.0), 6.0) * 0.35;
+      gl_FragColor = vec4(mix(col, air, clamp(mountainHaze + 0.35 * smoothstep(0.15, 0.7, vDownhill), 0.0, 1.0)), 1.0);
+    }`
+}));
+scene.add(mountain);
 
 const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2f });
 const leafMat = new THREE.MeshLambertMaterial({ color: 0x3a5a36 });
@@ -727,14 +866,15 @@ const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffff
 scene.add(stars);
 
 // Shooting stars now and then on clear nights; they ride with the stars (and so with the camera).
-// Some nights bring a meteor shower, a shooting star every second or so, all streaking away from one
-// point high in the sky in front of the starting view.
+// Most streak across the lower sky in front of the starting view, where they're in frame. Some nights
+// bring a meteor shower, a shooting star every second or so, all streaking away from one point low in
+// the sky in front of the starting view.
 const METEOR_SECONDS = 0.8;
 const METEOR_LENGTH = 120;
 const METEOR_TAIL = 35;
 const METEOR_RADIUS = 520;
 const METEOR_SHOWER_CHANCE = 0.3;
-const SHOWER_RADIANT = new THREE.Vector3(Math.sin(Math.PI - 0.5) * Math.cos(0.95), Math.sin(0.95), Math.cos(Math.PI - 0.5) * Math.cos(0.95));
+const SHOWER_RADIANT = new THREE.Vector3(Math.sin(Math.PI - 0.3) * Math.cos(0.42), Math.sin(0.42), Math.cos(Math.PI - 0.3) * Math.cos(0.42));
 let showerTonight = false;
 const meteors = Array.from({ length: 4 }, () => {
   const line = new THREE.LineSegments(
@@ -753,18 +893,21 @@ let meteorTimer = 6;
 const meteorAxis = new THREE.Vector3();
 function launchMeteor(m) {
   if (showerTonight) {
-    // Somewhere round the radiant, heading straight out away from it
-    meteorAxis.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(SHOWER_RADIANT).normalize();
-    m.from.copy(SHOWER_RADIANT).applyAxisAngle(meteorAxis, 0.15 + Math.random() * 0.6);
+    // Somewhere round the radiant (but above the horizon), heading straight out away from it
+    do {
+      meteorAxis.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).cross(SHOWER_RADIANT).normalize();
+      m.from.copy(SHOWER_RADIANT).applyAxisAngle(meteorAxis, 0.12 + Math.random() * 0.5);
+    } while (m.from.y < 0.08);
     m.dir.copy(m.from).sub(SHOWER_RADIANT).addScaledVector(m.from, -m.from.dot(m.from.clone().sub(SHOWER_RADIANT))).normalize();
     m.from.multiplyScalar(METEOR_RADIUS);
     m.seconds = METEOR_SECONDS * (0.6 + Math.random() * 0.6);
   } else {
-    const azimuth = Math.random() * Math.PI * 2;
-    const elevation = 0.45 + Math.random() * 0.5;
+    // Mostly low in front of the starting view (azimuth π), now and then anywhere round the sky
+    const azimuth = Math.random() < 0.7 ? Math.PI + (Math.random() - 0.5) * 1.8 : Math.random() * Math.PI * 2;
+    const elevation = 0.16 + Math.random() ** 1.5 * 0.38;
     m.from.set(Math.sin(azimuth) * Math.cos(elevation), Math.sin(elevation), Math.cos(azimuth) * Math.cos(elevation)).multiplyScalar(METEOR_RADIUS);
-    // Streak sideways across the sky and a little downward
-    m.dir.set(Math.cos(azimuth), 0, -Math.sin(azimuth)).multiplyScalar(Math.random() < 0.5 ? 1 : -1).setY(-0.6).normalize();
+    // Streak sideways across the sky and a little downward, shallowly so it isn't lost behind the hills
+    m.dir.set(Math.cos(azimuth), 0, -Math.sin(azimuth)).multiplyScalar(Math.random() < 0.5 ? 1 : -1).setY(-0.35).normalize();
     m.seconds = METEOR_SECONDS;
   }
   m.age = 0;
@@ -827,6 +970,98 @@ function updateSatellite(dt) {
   if (p >= 1 || p >= s.fadeAt) {
     satellite.visible = false;
     s.timer = 20 + Math.random() * 25;
+  }
+}
+
+// Airliners crossing high in the sky by day on their way somewhere else, each a glint of sun on a tiny speck
+// drawing a white trail behind it, a little way back from the engines. In dry air the trail is short and
+// soon gone; in the damp air aloft ahead of rain it lingers, spreading into a broad soft streak, which
+// is why the high cloud brings long ones. They ride with the camera, like the stars, and cross low
+// enough in front of the starting view to be in frame. At dawn and dusk they glow pink.
+const CONTRAIL_RADIUS = 540;
+const CONTRAIL_POINTS = 60;
+const CONTRAIL_STEP = 0.025;    // radians of sky between points along a trail
+const CONTRAIL_LIFE = { dry: 6, damp: 45 };     // seconds a trail takes to fade
+const CONTRAIL_SPREAD = { dry: 0.05, damp: 0.25 }; // how fast it widens, in sky metres a second
+const contrailIndex = [];
+for (let k = 0; k < CONTRAIL_POINTS - 1; k++) {
+  const [a, b] = [k * 3, (k + 1) * 3];
+  for (const edge of [0, 1]) contrailIndex.push(a + edge, b + edge, a + edge + 1, a + edge + 1, b + edge, b + edge + 1);
+}
+const jets = Array.from({ length: 2 }, (_, i) => {
+  // A ribbon three points across: clear at the edges and bright down the middle, so it's soft-edged
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(CONTRAIL_POINTS * 9), 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(CONTRAIL_POINTS * 9), 3));
+  geo.setIndex(contrailIndex);
+  const trail = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+  trail.frustumCulled = false;
+  trail.visible = false;
+  const speck = new THREE.Points(
+    new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute([0, 0, 0], 3)),
+    new THREE.PointsMaterial({ color: 0xfffaf0, size: 2.4, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false })
+  );
+  speck.frustumCulled = false;
+  trail.add(speck);
+  scene.add(trail);
+  return { trail, speck, angle: 0, rate: 0, seed: i * 3.1, across: new THREE.Vector3(), over: new THREE.Vector3() };
+});
+let jetTimer = 12;
+const trailPoint = new THREE.Vector3();
+const trailAlong = new THREE.Vector3();
+const trailSide = new THREE.Vector3();
+const trailColor = new THREE.Color();
+function launchJet(jet) {
+  // A great circle from one side of the sky to the other, highest in front of the starting view
+  const azimuth = Math.PI + (Math.random() - 0.5) * 1.2;
+  const top = 0.22 + Math.random() * 0.4;
+  jet.over.set(Math.sin(azimuth) * Math.cos(top), Math.sin(top), Math.cos(azimuth) * Math.cos(top));
+  jet.across.set(Math.cos(azimuth), 0, -Math.sin(azimuth)).multiplyScalar(Math.random() < 0.5 ? 1 : -1);
+  jet.angle = -1.45;
+  jet.rate = 2.9 / (70 + Math.random() * 20);
+  jet.trail.visible = true;
+}
+function updateContrails(dt, now) {
+  const daylight = smoothstep(sunHeight, -0.06, 0.04) * (1 - weather.overcast);
+  jetTimer -= dt;
+  if (jetTimer <= 0) {
+    const free = jets.find(jet => !jet.trail.visible);
+    if (free && daylight > 0.5) launchJet(free);
+    jetTimer = 20 + Math.random() * 25;
+  }
+  const life = lerp(CONTRAIL_LIFE.dry, CONTRAIL_LIFE.damp, weather.haze);
+  const spread = lerp(CONTRAIL_SPREAD.dry, CONTRAIL_SPREAD.damp, weather.haze);
+  for (const jet of jets) {
+    if (!jet.trail.visible) continue;
+    jet.angle += jet.rate * dt;
+    jet.trail.position.copy(camera.position);
+    const positions = jet.trail.geometry.attributes.position;
+    const colors = jet.trail.geometry.attributes.color;
+    for (let k = 0; k < CONTRAIL_POINTS; k++) {
+      const angle = jet.angle - k * CONTRAIL_STEP;
+      const age = (k * CONTRAIL_STEP) / jet.rate;
+      trailPoint.copy(jet.across).multiplyScalar(Math.sin(angle)).addScaledVector(jet.over, Math.cos(angle));
+      trailAlong.copy(jet.across).multiplyScalar(Math.cos(angle)).addScaledVector(jet.over, -Math.sin(angle));
+      trailSide.crossVectors(trailPoint, trailAlong).multiplyScalar((1.2 + spread * age) / 2);
+      const strength = smoothstep(age, 0.3, 1.2) * Math.exp(-age / life) * smoothstep(trailPoint.y, 0, 0.06) * daylight * 0.75;
+      trailPoint.multiplyScalar(CONTRAIL_RADIUS);
+      positions.setXYZ(k * 3, trailPoint.x + trailSide.x, trailPoint.y + trailSide.y, trailPoint.z + trailSide.z);
+      positions.setXYZ(k * 3 + 1, trailPoint.x, trailPoint.y, trailPoint.z);
+      positions.setXYZ(k * 3 + 2, trailPoint.x - trailSide.x, trailPoint.y - trailSide.y, trailPoint.z - trailSide.z);
+      // Spreading thins it, so it dims as it widens
+      trailColor.copy(dayColors.cloud).multiplyScalar(strength / (1 + spread * age * 0.3));
+      colors.setXYZ(k * 3, 0, 0, 0);
+      colors.setXYZ(k * 3 + 1, trailColor.r, trailColor.g, trailColor.b);
+      colors.setXYZ(k * 3 + 2, 0, 0, 0);
+    }
+    positions.needsUpdate = true;
+    colors.needsUpdate = true;
+    // The plane itself, catching the sun now and then
+    jet.speck.position.copy(jet.across).multiplyScalar(Math.sin(jet.angle)).addScaledVector(jet.over, Math.cos(jet.angle)).multiplyScalar(CONTRAIL_RADIUS);
+    const glint = 0.45 + 0.55 * Math.sin(now * 0.9 + jet.seed) ** 16;
+    jet.speck.material.opacity = daylight * glint * smoothstep(jet.speck.position.y / CONTRAIL_RADIUS, 0, 0.05);
+    // Done once the plane's below the horizon and its trail has gone after it or faded
+    if (jet.angle - Math.PI / 2 > Math.min(jet.rate * life * 4, CONTRAIL_POINTS * CONTRAIL_STEP)) jet.trail.visible = false;
   }
 }
 
@@ -1394,7 +1629,10 @@ function updateLightning(dt) {
 // with a rainbow as it clears
 const STORM_CHANCE = 0.4;
 // The first clear spell lasts into the first afternoon, so the floatplane's first visit isn't rained off
-const weather = { phase: "clear", timer: 80, overcast: 0, rain: 0, storm: 0, rainbow: 0, flash: 0 };
+const weather = { phase: "clear", timer: 80, overcast: 0, rain: 0, storm: 0, rainbow: 0, flash: 0, haze: 0 };
+// High cloud spreads in over the last stretch of a clear spell, a few hours ahead of the rain
+const HIGH_CLOUD_LEAD = 30;
+const highCloudComing = () => weather.phase === "clear" && weather.timer < HIGH_CLOUD_LEAD;
 const NEXT_WEATHER = { clear: "overcast", overcast: "rain", rain: "clearing", storm: "clearing", clearing: "clear" };
 const WEATHER_SECONDS = {
   clear: () => 70 + Math.random() * 60,
@@ -1416,6 +1654,7 @@ function updateWeather(dt) {
   weather.storm += ((weather.phase === "storm" ? 1 : 0) - weather.storm) * easeFactor(dt, 0.4);
   const rainbowWanted = weather.phase === "clearing" && sunHeight > 0.03;
   weather.rainbow += ((rainbowWanted ? 1 : 0) - weather.rainbow) * easeFactor(dt, 0.4);
+  weather.haze += ((highCloudComing() || weather.phase === "overcast" ? 1 : 0) - weather.haze) * easeFactor(dt, 0.12);
   updateLightning(dt);
 }
 function weatherLabel() {
@@ -1423,6 +1662,7 @@ function weatherLabel() {
   if (weather.rain > 0.5) return "Light rain";
   if (weather.rainbow > 0.5) return "Rainbow";
   if (weather.overcast > 0.5) return "Overcast";
+  if (weather.haze > 0.5) return skyUniforms.halo.value > 0.3 ? "Halo round the sun" : "High cloud";
   return "";
 }
 
@@ -1526,6 +1766,10 @@ function updateDayCycle() {
   }
   dayColors.cloud.multiplyScalar(1 - 0.3 * overcast);
   dayColors.sun.multiplyScalar(1 - 0.85 * overcast);
+  // The high cloud's veil turns the blue milky and takes the edge off the sun
+  dayColors.top.lerp(dayColors.horizon, 0.2 * weather.haze);
+  dayColors.mid.lerp(dayColors.horizon, 0.25 * weather.haze);
+  dayColors.sun.multiplyScalar(1 - 0.2 * weather.haze);
   // Lightning lights up the whole sky for an instant
   for (const key of ["top", "mid", "horizon"]) dayColors[key].lerp(FLASH_COLOR, weather.flash * 0.6);
 
@@ -1539,6 +1783,14 @@ function updateDayCycle() {
   skyUniforms.moonVis.value = moonVis;
   skyUniforms.moonPhase.value = moonPhase;
   skyUniforms.moonLit.value = moonLit;
+  skyUniforms.haze.value = weather.haze;
+  skyUniforms.cirrusColor.value.copy(dayColors.cloud);
+  skyUniforms.halo.value = weather.haze * (1 - overcast) * smoothstep(sunHeight, 0.05, 0.2);
+  // Sundogs only show with the sun fairly low, and sit further out from the halo the higher it is
+  skyUniforms.sundogs.value = skyUniforms.halo.value * (1 - smoothstep(sunHeight, 0.5, 0.75));
+  const sunElevation = Math.asin(clamp(sunHeight, -1, 1));
+  const dogAzimuth = 0.384 / Math.cos(sunElevation) ** 2;
+  skyUniforms.sundogGap.value = Math.acos(clamp(Math.sin(sunElevation) ** 2 + Math.cos(sunElevation) ** 2 * Math.cos(dogAzimuth), -1, 1));
   scene.fog.color.copy(dayColors.horizon).multiplyScalar(0.92);
   scene.fog.near = lerp(45, 20, overcast);
   scene.fog.far = lerp(420, 180, overcast);
@@ -1552,6 +1804,10 @@ function updateDayCycle() {
   moonLight.position.copy(MOON_DIR).multiplyScalar(100);
 
   hillMat.color.copy(dayColors.hill);
+  mountainUniforms.ambient.value.copy(skyLight.color).multiplyScalar(skyLight.intensity * 0.5);
+  mountainUniforms.sunLight.value.copy(dayColors.sun);
+  mountainUniforms.moonLight.value.setRGB(0.62, 0.7, 0.85).multiplyScalar(moonLight.intensity * 1.5);
+  mountainUniforms.mountainHaze.value = clamp(lerp(0.3, 1, overcast) + 0.12 * weather.haze, 0, 1);
   cloudMat.color.copy(dayColors.cloud);
   cloudMat.emissive.copy(dayColors.cloudGlow);
   waterUniforms.deep.value.copy(dayColors.deep);
@@ -4175,6 +4431,257 @@ function updateOsprey(dt, now) {
   }
 }
 
+// Soaring birds riding the warm air that rises off the land on fine days. In the late morning a kettle of
+// turkey vultures glides in over the far side of the valley and circles slowly upward on wings held in a
+// shallow V, teetering from side to side as it drifts with the breeze. In the late afternoon, as the
+// thermals die (or if the weather turns), they peel off one by one and glide away. They're silent. Lower down, over the deer
+// meadow, a red-tailed hawk circles on its own, giving its hoarse, falling scream, and makes off with a
+// scream if the eagle comes too close.
+const SOAR_HOURS = { from: 9.5, to: 16 }; // the day goes by fast, so one kettle fills it
+const HAWK_HOURS = { from: 9, to: 17 };
+const VULTURE_SCALE = 1.7; // larger than life (wingspan about 3 m) so they read from across the valley
+const HAWK_SCALE = 1.4;
+const THERMAL_DRIFT = 0.6; // metres per second downwind, the way the clouds go
+const THERMAL_RISE = 0.9;
+const THERMAL_TOP = 28;    // metres it carries them up
+const SOAR_GLIDE_SPEED = 10;
+const HAWK_WARY_RADIUS = 14;
+const soaringWeather = () => weather.overcast < 0.3 && weather.rain < 0.05;
+// A flat part coloured one way above and another below. Which face of a flat part looks down depends
+// on how it was wound, so each colour goes on whichever face looks its way.
+const soarPaint = new Map();
+function soarMaterial(color, side) {
+  const key = `${color}:${side}`;
+  // A touch of their own colour as glow stands in for skylight, so the green light off the meadow
+  // doesn't turn pale undersides olive
+  if (!soarPaint.has(key)) soarPaint.set(key, new THREE.MeshStandardMaterial({ color, emissive: new THREE.Color(color).multiplyScalar(0.25), flatShading: true, roughness: 0.85, side }));
+  return soarPaint.get(key);
+}
+const faceCorner = new THREE.Vector3();
+const faceA = new THREE.Vector3();
+const faceB = new THREE.Vector3();
+function twoTone(points, mirror, top, under) {
+  const geo = flatPart(points, mirror);
+  const position = geo.attributes.position;
+  const [a, b, c] = geo.index ? geo.index.array : [0, 1, 2];
+  faceCorner.fromBufferAttribute(position, a);
+  faceA.fromBufferAttribute(position, b).sub(faceCorner);
+  faceB.fromBufferAttribute(position, c).sub(faceCorner);
+  const frontDown = faceA.cross(faceB).y < 0;
+  const part = new THREE.Group();
+  part.add(new THREE.Mesh(geo, soarMaterial(under, frontDown ? THREE.FrontSide : THREE.BackSide)));
+  part.add(new THREE.Mesh(geo, soarMaterial(top, frontDown ? THREE.BackSide : THREE.FrontSide)));
+  return part;
+}
+// Wings from a list of [outline, top colour, under colour] for the inner wing and for the hand
+function soarerWings(bird, shoulderX, wristX, inner, outer) {
+  return [1, -1].map(side => {
+    const shoulder = new THREE.Group();
+    shoulder.position.set(shoulderX * side, 0.03, 0.04);
+    for (const [points, top, under] of inner) shoulder.add(twoTone(points, side < 0, top, under));
+    const wrist = new THREE.Group();
+    wrist.position.x = wristX * side;
+    wrist.rotation.y = 0.12 * side;
+    for (const [points, top, under] of outer) wrist.add(twoTone(points, side < 0, top, under));
+    shoulder.add(wrist);
+    bird.add(shoulder);
+    return { shoulder, side };
+  });
+}
+// Turkey vulture: blackish brown all over, with a small bare red head and silvery flight feathers
+// along the back of the wings beneath, ending in spread "fingers"
+const VULTURE_DARK = 0x2a221e;
+const VULTURE_SILVER = 0x9a9690;
+function makeVulture() {
+  const vulture = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), soarMaterial(VULTURE_DARK, THREE.FrontSide));
+  body.scale.set(0.85, 0.75, 2.2);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), soarMaterial(0xc04a3a, THREE.FrontSide));
+  head.position.set(0, 0.01, 0.31);
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.06, 6), soarMaterial(0xe8e0d0, THREE.FrontSide));
+  bill.rotation.x = Math.PI / 2 + 0.3;
+  bill.position.set(0, -0.005, 0.36);
+  const fingers = [0.04, 0.015, -0.01, -0.035, -0.06].map((y, k) =>
+    [[[0.29, y + 0.012], [0.38 - k * 0.006, y + 0.005], [0.38 - k * 0.006, y - 0.005], [0.29, y - 0.012]], VULTURE_DARK, VULTURE_SILVER]);
+  vulture.userData.wings = soarerWings(vulture, 0.09, 0.42, [
+    [[[0, 0.13], [0.42, 0.12], [0.42, 0], [0, 0]], VULTURE_DARK, VULTURE_DARK],
+    [[[0, 0], [0.42, 0], [0.42, -0.12], [0, -0.15]], VULTURE_DARK, VULTURE_SILVER]
+  ], [
+    [[[0, 0.12], [0.2, 0.1], [0.3, 0.06], [0.3, 0], [0, 0]], VULTURE_DARK, VULTURE_DARK],
+    [[[0, 0], [0.3, 0], [0.3, -0.06], [0.2, -0.1], [0, -0.12]], VULTURE_DARK, VULTURE_SILVER],
+    ...fingers
+  ]);
+  const tail = twoTone([[0.05, 0], [0.08, -0.3], [-0.08, -0.3], [-0.05, 0]], false, VULTURE_DARK, VULTURE_DARK);
+  tail.position.set(0, 0.01, -0.26);
+  vulture.add(body, head, bill, tail);
+  return vulture;
+}
+// Red-tailed hawk: brown above with a rusty tail, pale beneath with a dark bar along the front of each
+// wing, dark wingtips and a dark band across the belly
+const HAWK_BROWN = 0x6a4a30;
+const HAWK_PALE = 0xe8dcc4;
+const HAWK_DARK = 0x3a2a1e;
+function makeHawk() {
+  const hawk = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), soarMaterial(HAWK_PALE, THREE.FrontSide));
+  body.scale.set(0.85, 0.8, 1.9);
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), soarMaterial(HAWK_BROWN, THREE.FrontSide));
+  back.scale.set(0.88, 0.55, 1.9);
+  back.position.y = 0.03;
+  const band = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), soarMaterial(HAWK_DARK, THREE.FrontSide));
+  band.scale.set(0.9, 0.5, 0.6);
+  band.position.set(0, -0.045, -0.04);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), soarMaterial(HAWK_BROWN, THREE.FrontSide));
+  head.position.set(0, 0.03, 0.23);
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.06, 6), soarMaterial(HAWK_DARK, THREE.FrontSide));
+  bill.rotation.x = Math.PI / 2 + 0.4;
+  bill.position.set(0, 0.01, 0.3);
+  hawk.userData.wings = soarerWings(hawk, 0.08, 0.3, [
+    [[[0, 0.12], [0.3, 0.12], [0.3, 0.09], [0, 0.095]], HAWK_BROWN, HAWK_DARK],
+    [[[0, 0.095], [0.3, 0.09], [0.3, -0.11], [0, -0.12]], HAWK_BROWN, HAWK_PALE]
+  ], [
+    [[[0, 0.12], [0.16, 0.1], [0.22, 0.07], [0.22, -0.08], [0.16, -0.1], [0, -0.11]], HAWK_BROWN, HAWK_PALE],
+    [[[0.22, 0.07], [0.27, 0.035], [0.28, -0.04], [0.22, -0.08]], HAWK_DARK, HAWK_DARK]
+  ]);
+  const tail = twoTone([[0.04, 0], [0.13, -0.19], [-0.13, -0.19], [-0.04, 0]], false, 0xb0502a, 0xe6c8b0);
+  tail.position.set(0, 0.01, -0.2);
+  hawk.add(body, back, band, head, bill, tail);
+  return hawk;
+}
+function addSoarer(bird, scale, seed) {
+  bird.scale.setScalar(scale);
+  bird.visible = false;
+  Object.assign(bird.userData, {
+    mode: "away", time: 0, seconds: 1, around: 0, radius: 10, rate: 0.4, layer: 0, roll: 0, seed,
+    from: new THREE.Vector3(), to: new THREE.Vector3(), last: new THREE.Vector3(), heading: new THREE.Vector3(0, 0, 1)
+  });
+  scene.add(bird);
+  return bird;
+}
+const vultures = Array.from({ length: 4 }, (_, i) => addSoarer(makeVulture(), VULTURE_SCALE, i * 2.1));
+vultures.forEach((vulture, i) => (vulture.userData.layer = i * 3.5));
+const hawk = addSoarer(makeHawk(), HAWK_SCALE, 0.7);
+const kettle = { mode: "away", timer: 4, time: 0, lift: 0, centre: new THREE.Vector3(), exit: new THREE.Vector3() };
+const hawkState = { mode: "away", timer: 8, time: 0, seconds: 1, centre: new THREE.Vector3(), screamTimer: 3, alarmed: false };
+function setSoarMode(bird, mode, seconds = Infinity) {
+  Object.assign(bird.userData, { mode, time: 0, seconds });
+}
+// Glide in to its place on the circle, ride round it, or glide off from it; banking into the turns
+const soarCircle = new THREE.Vector3();
+const soarFlat = new THREE.Vector3();
+function glideSoarer(bird, dt) {
+  const s = bird.userData;
+  s.time += dt;
+  s.last.copy(bird.position);
+  const t = smootherstep(s.time / s.seconds, 0, 1);
+  if (s.mode === "in") bird.position.lerpVectors(s.from, soarCircle, t);
+  else if (s.mode === "out") bird.position.lerpVectors(soarCircle, s.to, t);
+  else bird.position.copy(soarCircle);
+  if (s.time >= s.seconds) {
+    if (s.mode === "in") setSoarMode(bird, "circle");
+    else if (s.mode === "out") {
+      setSoarMode(bird, "away");
+      bird.visible = false;
+    }
+  }
+  soarFlat.subVectors(bird.position, s.last).setY(0);
+  if (soarFlat.lengthSq() > 1e-8) {
+    soarFlat.normalize();
+    const yawRate = (s.heading.z * soarFlat.x - s.heading.x * soarFlat.z) / Math.max(dt, 1e-3);
+    s.heading.copy(soarFlat);
+    s.roll += (clamp(-yawRate * 0.8, -0.6, 0.6) - s.roll) * easeFactor(dt, 2);
+  }
+  faceTravel(bird, s.last);
+  bird.rotateZ(s.roll);
+}
+function updateKettle(dt, now) {
+  const k = kettle;
+  const fine = soaringWeather() && hour >= SOAR_HOURS.from && hour < SOAR_HOURS.to;
+  if (k.mode === "away") {
+    k.timer -= dt;
+    if (k.timer > 0 || !fine) return;
+    // A thermal over the far side of the valley, left of the floatplane's way in
+    k.centre.set(-110 + Math.random() * 110, groundY + 26, -125 + Math.random() * 30);
+    Object.assign(k, { mode: "soar", time: 0, lift: 0 });
+    const fromSide = Math.random() < 0.5 ? -1 : 1;
+    vultures.forEach((vulture, i) => {
+      const v = vulture.userData;
+      Object.assign(v, { radius: 8 + Math.random() * 6, rate: 0.35 + Math.random() * 0.15, around: Math.random() * Math.PI * 2, roll: 0 });
+      v.from.set(k.centre.x + fromSide * (110 + i * 15), k.centre.y + 12 + Math.random() * 8, k.centre.z - 30 + Math.random() * 60);
+      vulture.position.copy(v.from);
+      vulture.visible = true;
+      setSoarMode(vulture, "in", v.from.distanceTo(k.centre) / SOAR_GLIDE_SPEED);
+    });
+  }
+  k.time += dt;
+  k.centre.x += THERMAL_DRIFT * dt;
+  k.lift = Math.min(k.lift + THERMAL_RISE * dt * (k.mode === "soar" ? 1 : 0), THERMAL_TOP);
+  // As the thermals die (or when the weather turns) they set off one after another, all the same way
+  if (k.mode === "soar" && !fine) {
+    k.mode = "leave";
+    const heading = (Math.random() - 0.5) * 1.2 + (Math.random() < 0.7 ? Math.PI / 2 : -Math.PI / 2);
+    k.exit.set(Math.sin(heading), 0, Math.cos(heading));
+    vultures.forEach((vulture, i) => (vulture.userData.leaveIn = i * 1.2 + Math.random()));
+  }
+  for (const vulture of vultures) {
+    if (!vulture.visible) continue;
+    const v = vulture.userData;
+    v.around += v.rate * dt;
+    soarCircle.set(k.centre.x + Math.cos(v.around) * v.radius, k.centre.y + k.lift + v.layer + Math.sin(now * 0.3 + v.seed) * 0.6, k.centre.z + Math.sin(v.around) * v.radius);
+    if (k.mode === "leave" && v.mode === "circle" && (v.leaveIn -= dt) <= 0) {
+      v.to.copy(vulture.position).addScaledVector(k.exit, 150).y -= 10;
+      setSoarMode(vulture, "out", 10);
+    }
+    glideSoarer(vulture, dt);
+    // Teetering from side to side on wings held up in a V
+    vulture.rotateZ(Math.sin(now * 1.7 + v.seed) * 0.1);
+    for (const { shoulder, side } of vulture.userData.wings) shoulder.rotation.z = side * 0.26;
+  }
+  if (k.mode === "leave" && vultures.every(vulture => !vulture.visible)) Object.assign(k, { mode: "away", timer: 6 + Math.random() * 4 });
+}
+function updateHawk(dt, now) {
+  const h = hawkState;
+  const s = hawk.userData;
+  const fine = soaringWeather() && hour >= HAWK_HOURS.from && hour < HAWK_HOURS.to;
+  if (h.mode === "away") {
+    h.timer -= dt;
+    if (h.timer > 0 || !fine) return;
+    // Over the deer meadow beyond the lake
+    h.centre.set(-5 + Math.random() * 25, groundY + 15 + Math.random() * 5, -58 + Math.random() * 10);
+    Object.assign(h, { mode: "circle", time: 0, seconds: 15 + Math.random() * 10, screamTimer: 3, alarmed: false });
+    Object.assign(s, { radius: 9, rate: 0.45, around: Math.random() * Math.PI * 2, roll: 0 });
+    s.from.set(h.centre.x + (Math.random() < 0.5 ? -1 : 1) * 110, h.centre.y + 8, h.centre.z - 30);
+    hawk.position.copy(s.from);
+    hawk.visible = true;
+    setSoarMode(hawk, "in", s.from.distanceTo(h.centre) / SOAR_GLIDE_SPEED);
+  }
+  h.time += dt;
+  s.around += s.rate * dt;
+  soarCircle.set(h.centre.x + Math.cos(s.around) * s.radius, h.centre.y + Math.sin(now * 0.4) * 0.8, h.centre.z + Math.sin(s.around) * s.radius);
+  const pan = clamp((hawk.position.x - camera.position.x) / 40, -0.8, 0.8);
+  const loudness = clamp(40 / Math.max(camera.position.distanceTo(hawk.position), 1), 0.15, 1);
+  if (h.mode === "circle" && s.mode === "circle") {
+    h.alarmed = bird.position.distanceTo(hawk.position) < HAWK_WARY_RADIUS;
+    if (h.alarmed || h.time > h.seconds || !fine) {
+      // Away from the eagle if it's being chased off, otherwise off over the trees
+      h.mode = "leave";
+      if (h.alarmed) s.to.subVectors(hawk.position, bird.position).setY(0).setLength(200).add(hawk.position);
+      else s.to.set(h.centre.x + (Math.random() - 0.5) * 200, h.centre.y + 12, h.centre.z - 130);
+      setSoarMode(hawk, "out", h.alarmed ? 8 : 12);
+      if (h.alarmed && sound.on) hawkScream(pan, loudness);
+    }
+    if ((h.screamTimer -= dt) <= 0) {
+      if (sound.on) hawkScream(pan, loudness);
+      h.screamTimer = 7 + Math.random() * 6;
+    }
+  }
+  glideSoarer(hawk, dt);
+  // Wings nearly flat, with a burst of wingbeats as it makes off from the eagle
+  const beating = h.alarmed && s.mode === "out" && s.time < 3 ? 1 : 0;
+  for (const { shoulder, side } of s.wings) shoulder.rotation.z = side * (0.08 + Math.sin(now * 11) * 0.5 * beating);
+  if (!hawk.visible) Object.assign(h, { mode: "away", timer: 8 + Math.random() * 7 });
+}
+
 // A floatplane that drops in every other afternoon, starting with the first (rain puts it off to the
 // next afternoon). It comes in low over the trees on the right and buzzes the length of the lake,
 // scattering everything on the water, climbs away into a wide banking circuit round the far side and
@@ -4436,6 +4943,116 @@ function updateFloatplane(dt, now) {
   }
 }
 
+// A hot-air balloon on calm mornings (always the first, then about every other one). Soon after sunrise
+// it rises from behind the foothill ahead and to the left, its burner roaring now and then in a flare
+// of flame that lights the envelope from inside, drifts slowly across the far side of the valley and
+// sinks out of sight behind the foothills ahead by early afternoon. The pilot only goes up when the fine
+// weather will last the whole flight. The campers stop to point it out to each other as it comes over.
+const BALLOON_HOURS = { from: 6.25, to: 13 };
+const BALLOON_CHANCE = 0.5;
+const BALLOON_SPOTTED = 0.3; // how far across it is when the campers point it out
+const BALLOON_POINT_SECONDS = 6;
+const balloonPath = new THREE.CatmullRomCurve3([
+  [-95, -30, -182], [-85, 20, -170], [-50, 36, -148], [5, 40, -140], [50, 38, -165], [68, 30, -230], [80, -12, -300]
+].map(point => new THREE.Vector3(...point)));
+balloonPath.arcLengthDivisions = 1000;
+// Upright gores of red and gold, a royal blue band round the widest part and a white crown
+function balloonTexture() {
+  const c = document.createElement("canvas");
+  c.width = 512;
+  c.height = 256;
+  const g = c.getContext("2d");
+  for (let i = 0; i < 12; i++) {
+    g.fillStyle = i % 2 ? "#f2b632" : "#c8322a";
+    g.fillRect((i * c.width) / 12, 0, c.width / 12 + 1, c.height);
+  }
+  g.fillStyle = "#1f4e9a";
+  g.fillRect(0, c.height * 0.36, c.width, c.height * 0.12);
+  g.fillStyle = "#f4f0e6";
+  g.fillRect(0, 0, c.width, c.height * 0.08);
+  return new THREE.CanvasTexture(c);
+}
+// Life size: about 18 m tall and 16 m across
+function makeBalloon() {
+  const balloon = new THREE.Group();
+  const profile = [[1.4, 0], [2.2, 1], [3.6, 2.5], [5.4, 4.5], [6.9, 6.5], [7.8, 8.5], [8.1, 10.3], [7.9, 12], [7.1, 13.7], [5.7, 15.2], [3.8, 16.4], [1.8, 17.2], [0, 17.5]];
+  const envelopeMat = new THREE.MeshLambertMaterial({ map: balloonTexture(), side: THREE.DoubleSide });
+  const envelope = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 24), envelopeMat);
+  envelope.position.y = 4.2;
+  const wicker = new THREE.MeshLambertMaterial({ color: 0x7a5530 });
+  const basket = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 1.3), wicker);
+  basket.position.y = 0.55;
+  const dark = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
+  const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.4, 8), dark);
+  burner.position.y = 2.4;
+  balloon.add(envelope, basket, burner);
+  // Ropes from the corners of the basket up to the mouth of the envelope
+  const up = new THREE.Vector3(0, 1, 0);
+  for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const from = new THREE.Vector3(x * 0.6, 1.1, z * 0.6);
+    const to = new THREE.Vector3(x * 0.95, 4.25, z * 0.95);
+    const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, from.distanceTo(to), 4), dark);
+    rope.position.lerpVectors(from, to, 0.5);
+    rope.quaternion.setFromUnitVectors(up, to.clone().sub(from).normalize());
+    balloon.add(rope);
+  }
+  const flame = new THREE.Mesh(
+    new THREE.ConeGeometry(0.35, 1.6, 8).translate(0, 0.8, 0),
+    new THREE.MeshBasicMaterial({ color: 0xffa040, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  flame.position.y = 2.6;
+  balloon.add(flame);
+  Object.assign(balloon.userData, { envelopeMat, flame });
+  return balloon;
+}
+const balloon = makeBalloon();
+balloon.visible = false;
+scene.add(balloon);
+const balloonState = { mode: "away", tomorrow: true, along: 0, seconds: 1, burning: false, burnTimer: 1, burn: 0, spin: 0 };
+// Where people look when they point it out: the middle of the envelope
+const balloonSight = new THREE.Vector3();
+const BURN_GLOW = new THREE.Color(1, 0.55, 0.2);
+function updateBalloon(dt, now) {
+  const b = balloonState;
+  const { envelopeMat, flame } = balloon.userData;
+  if (b.mode === "away") {
+    balloon.visible = false;
+    if (!b.tomorrow || hour < BALLOON_HOURS.from || hour > BALLOON_HOURS.from + 0.5) return;
+    const seconds = secondsUntil(BALLOON_HOURS.to);
+    b.tomorrow = false;
+    // Only when the fine spell will see the flight out, high cloud and all
+    if (weather.phase !== "clear" || weather.timer - HIGH_CLOUD_LEAD < seconds) return;
+    Object.assign(b, { mode: "flying", along: 0, seconds, burning: true, burnTimer: 2, spin: Math.random() * Math.PI * 2 });
+    balloon.visible = true;
+  }
+  const lastAlong = b.along;
+  b.along = Math.min(b.along + dt / b.seconds, 1);
+  if (lastAlong < BALLOON_SPOTTED && b.along >= BALLOON_SPOTTED) {
+    // She spots it first, then he looks up too
+    // (he's the first camper, so his count starts further back)
+    campers.forEach((camper, i) => (camper.userData.spotting = BALLOON_POINT_SECONDS + (1 - i) * 1.5));
+  }
+  balloonPath.getPointAt(b.along, balloon.position);
+  // Turning slowly as it drifts, with a gentle sway of the basket
+  b.spin += dt * 0.05;
+  balloon.rotation.set(Math.sin(now * 0.5) * 0.015, b.spin, Math.sin(now * 0.37) * 0.015);
+  balloonSight.copy(balloon.position).y += 13;
+  // Burns come often on the climb, now and then across the valley, and not at all on the way down
+  b.burnTimer -= dt;
+  if (b.burnTimer <= 0) {
+    const climbing = b.along < 0.3;
+    const descending = b.along > 0.75;
+    b.burning = !b.burning && !descending;
+    b.burnTimer = b.burning ? 1.2 + Math.random() : climbing ? 2 + Math.random() * 2 : 5 + Math.random() * 4;
+  }
+  b.burn += ((b.burning ? 1 : 0) - b.burn) * easeFactor(dt, 12);
+  flame.visible = b.burn > 0.02;
+  flame.scale.set(1, b.burn * (0.8 + Math.random() * 0.4), 1);
+  // The flame lights the envelope from inside, which shows best in the dim light of early morning
+  envelopeMat.emissive.copy(BURN_GLOW).multiplyScalar(b.burn * lerp(0.6, 0.15, smoothstep(sunHeight, 0, 0.3)));
+  if (b.along >= 1) b.mode = "away";
+}
+
 // Two campers with a tent, chairs and a fire pit on the right-hand shore. By day they sit in their
 // chairs or wander about the camp, stopping to point whenever the eagle passes close overhead;
 // they shelter in the tent when it rains, and at night they turn in, the fire burns and a lamp
@@ -4690,7 +5307,7 @@ const campers = CAMPERS.map(outfit => {
   const camper = makeCamper(outfit);
   camper.scale.setScalar(outfit.height);
   Object.assign(camper.userData, {
-    chairSpot, chairFacing: facing, stagger: outfit.stagger,
+    chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0,
     seat: new THREE.Vector3(x - Math.sin(facing) * SEAT_BACK, groundY, z - Math.cos(facing) * SEAT_BACK)
   });
   camper.position.copy(TENT_DOOR);
@@ -5121,11 +5738,16 @@ function updateCamper(camper, dt, now, indoors) {
   if (c.state === "inTent") return;
 
   const moving = c.state in CAMPER_ARRIVALS;
-  const toEagle = Math.atan2(bird.position.x - camper.position.x, bird.position.z - camper.position.z);
+  // They point at the eagle when it passes overhead, or out at the balloon as it comes over
   const overhead = bird.position.y > groundY + CAMPER_HEAD_HEIGHT + POINT_CLEARANCE && bird.position.distanceTo(camper.position) < POINT_RANGE;
+  c.spotting -= dt;
+  const spotting = c.spotting > 0 && c.spotting <= BALLOON_POINT_SECONDS && balloon.visible;
+  if (overhead) c.sight.copy(bird.position);
+  else if (spotting) c.sight.copy(balloonSight);
+  const toEagle = Math.atan2(c.sight.x - camper.position.x, c.sight.z - camper.position.z);
   // Too busy to point while fishing, toasting a marshmallow or lying out under the stars
   const busy = c.state === "fishing" || c.state === "stargaze" || c.roast > 0.5 || c.lie > 0.1;
-  c.point += ((overhead && !indoors && !busy ? 1 : 0) - c.point) * easeFactor(dt, 4);
+  c.point += (((overhead || spotting) && !indoors && !busy ? 1 : 0) - c.point) * easeFactor(dt, 4);
   c.sit += ((c.state === "sit" || afloat ? 1 : 0) - c.sit) * easeFactor(dt, 3);
   c.boat += ((afloat ? 1 : 0) - c.boat) * easeFactor(dt, 3);
   c.roast += ((c.state === "sit" && hour >= FIRE_HOUR && camp.fire > 0.5 ? 1 : 0) - c.roast) * easeFactor(dt, 2);
@@ -5188,7 +5810,7 @@ function updateCamper(camper, dt, now, indoors) {
   paddle.position.y = PADDLE_HEIGHT + Math.max(Math.cos(canoeTrip.stroke + c.paddleSide), 0) * 0.12 * paddling;
 
   camper.updateMatrixWorld();
-  upper.worldToLocal(eagleLocal.copy(bird.position));
+  upper.worldToLocal(eagleLocal.copy(c.sight));
   for (const { shoulder, side, phase } of arms) {
     shoulder.quaternion.setFromEuler(armSwing.set(lerp(Math.sin(c.walkPhase + phase) * 0.45 * stride, -0.5, c.sit), 0, side * 0.08));
     // Hands on the paddle: the arm on the paddling side low on the shaft, the other on the grip
@@ -5201,13 +5823,13 @@ function updateCamper(camper, dt, now, indoors) {
     // Holding a marshmallow out over the fire, or fishing
     if (side < 0 && c.roast > 0.001) shoulder.quaternion.slerp(armAim.setFromEuler(armSwing.set(-1.0 + Math.sin(now * 0.7 + c.seed) * 0.05, 0.25, -0.08)), c.roast);
     if (side < 0 && c.state === "fishing") shoulder.quaternion.setFromEuler(armSwing.set(fishing.arm, 0, -0.1));
-    // The right arm points straight at the eagle
+    // The right arm points straight at the eagle (or the balloon)
     if (side < 0 && c.point > 0.001) {
       armAim.setFromUnitVectors(ARM_DOWN, lookLocal.copy(eagleLocal).sub(shoulder.position).normalize());
       shoulder.quaternion.slerp(armAim, c.point);
     }
   }
-  // Glance about while idle; follow the eagle while pointing
+  // Glance about while idle; follow the eagle (or the balloon) while pointing
   lookLocal.copy(eagleLocal).sub(head.position);
   const glance = c.state === "stand" || c.state === "sit" ? Math.sin(now * 0.4 + c.seed) * 0.6 : 0;
   head.rotation.y = lerp(glance, clamp(Math.atan2(lookLocal.x, lookLocal.z), -1.2, 1.2), c.point);
@@ -6266,6 +6888,20 @@ function startSound() {
     osc.start();
     return { osc, ratio };
   });
+  // The balloon's burner: a breathy roar, and the far-off rumble of airliners high overhead
+  const burnerFilter = ctx.createBiquadFilter();
+  burnerFilter.type = "bandpass";
+  burnerFilter.frequency.value = 650;
+  burnerFilter.Q.value = 0.8;
+  const burnerGain = ctx.createGain();
+  burnerGain.gain.value = 0;
+  loopNoise().connect(burnerFilter).connect(burnerGain).connect(master);
+  const jetFilter = ctx.createBiquadFilter();
+  jetFilter.type = "lowpass";
+  jetFilter.frequency.value = 170;
+  const jetGain = ctx.createGain();
+  jetGain.gain.value = 0;
+  loopNoise().connect(jetFilter).connect(jetGain).connect(master);
   // A soft echo off the far shore, for calls that carry across the water
   const echo = ctx.createDelay(1);
   echo.delayTime.value = 0.34;
@@ -6276,7 +6912,7 @@ function startSound() {
   echoFilter.frequency.value = 1600;
   echo.connect(echoFilter).connect(echoFeedback).connect(echo);
   echoFilter.connect(master);
-  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain, waterGain, engines, engineGain, echo });
+  Object.assign(sound, { ctx, master, noise, windFilter, windGain, rainGain, waterGain, engines, engineGain, burnerGain, jetGain, echo });
 }
 function tone({ type = "sine", freq, freqEnd, start, duration, gain, pan = 0, filter }) {
   const { ctx } = sound;
@@ -6453,6 +7089,43 @@ function ospreyCall(pan) {
   const notes = 4 + Math.floor(Math.random() * 3);
   for (let i = 0; i < notes; i++) tone({ freq: 2300, freqEnd: 2900 + i * 40, start: start + i * 0.19, duration: 0.12, gain: 0.03, pan });
 }
+// The red-tailed hawk's scream: a hoarse, drawn-out "kee-eeee-arr" falling away at the end
+function hawkScream(pan, loudness) {
+  const { ctx } = sound;
+  const start = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(2500, start);
+  osc.frequency.linearRampToValueAtTime(2900, start + 0.15);
+  osc.frequency.exponentialRampToValueAtTime(1500, start + 1.5);
+  // A fast wobble in the pitch makes it rasp
+  const rasp = ctx.createOscillator();
+  rasp.frequency.value = 70;
+  const raspDepth = ctx.createGain();
+  raspDepth.gain.value = 140;
+  rasp.connect(raspDepth).connect(osc.frequency);
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 2400;
+  filter.Q.value = 1.5;
+  const envelope = ctx.createGain();
+  envelope.gain.setValueAtTime(0.0001, start);
+  envelope.gain.exponentialRampToValueAtTime(0.05 * loudness, start + 0.1);
+  envelope.gain.setValueAtTime(0.05 * loudness, start + 0.9);
+  envelope.gain.exponentialRampToValueAtTime(0.0001, start + 1.6);
+  let node = osc.connect(filter).connect(envelope);
+  if (ctx.createStereoPanner) {
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = pan;
+    node = node.connect(panner);
+  }
+  node.connect(sound.master);
+  node.connect(sound.echo);
+  for (const source of [osc, rasp]) {
+    source.start(start);
+    source.stop(start + 1.65);
+  }
+}
 // The kingfisher's dry, rattling call
 function kingfisherRattle(pan) {
   const start = sound.ctx.currentTime;
@@ -6509,6 +7182,11 @@ function updateSound(dt, now) {
   const planeLoudness = floatplane.visible ? clamp(25 / Math.max(camera.position.distanceTo(floatplane.position), 1), 0, 1) ** 1.3 : 0;
   sound.engineGain.gain.setTargetAtTime(0.1 * planeLoudness * (0.4 + 0.6 * planeState.throttle), at, 0.2);
   for (const { osc, ratio } of sound.engines) osc.frequency.setTargetAtTime(lerp(55, 115, planeState.throttle) * ratio, at, 0.3);
+  const balloonLoudness = balloon.visible ? clamp(60 / Math.max(camera.position.distanceTo(balloon.position), 1), 0, 1) ** 1.2 : 0;
+  sound.burnerGain.gain.setTargetAtTime(0.12 * balloonLoudness * balloonState.burn, at, 0.08);
+  // Louder the higher the plane, as it's nearer
+  const jetLoudness = jets.reduce((sum, jet) => sum + (jet.trail.visible ? Math.max(jet.speck.position.y / CONTRAIL_RADIUS, 0) * jet.speck.material.opacity : 0), 0);
+  sound.jetGain.gain.setTargetAtTime(0.03 * Math.min(jetLoudness, 1), at, 1);
   sound.waterGain.gain.setTargetAtTime(0.25 * clamp(12 / fallsGap, 0, 1) ** 1.5 + 0.06 * clamp(4 / streamGap, 0, 1), at, 0.3);
   sound.birdTimer -= dt;
   sound.cricketTimer -= dt;
@@ -7445,6 +8123,8 @@ function frame() {
     bearState.campVisit = !auroraTonight && Math.random() < BEAR_CAMP_CHANCE;
     // The floatplane, some afternoons (always the first)
     planeState.hour = lerp(PLANE_HOURS.from, 13, Math.random());
+    // The balloon, some mornings (always the first)
+    balloonState.tomorrow = Math.random() < BALLOON_CHANCE;
     wolves.tonight = Math.random() < WOLF_CHANCE;
   }
   if (lastHour < SUNSET && hour >= SUNSET) nightsSeen++;
@@ -7522,6 +8202,9 @@ function frame() {
   updateKingfisher(dt, elapsed);
   updateOsprey(dt, elapsed);
   updateFloatplane(dt, elapsed);
+  updateBalloon(dt, elapsed);
+  updateKettle(dt, elapsed);
+  updateHawk(dt, elapsed);
   updateBear(dt, elapsed);
   updateSmoke(dt);
   updateChipmunks(dt, elapsed);
@@ -7543,6 +8226,7 @@ function frame() {
   aurora.position.set(camera.position.x, camera.position.y + 130, camera.position.z);
   updateShootingStars(dt);
   updateSatellite(dt);
+  updateContrails(dt, elapsed);
   updateRain(dt);
   updateBeams(beamAmount, dayColors.sun);
   updateMist(dt, mistAmount, mistColor);
@@ -7551,6 +8235,7 @@ function frame() {
   waterUniforms.time.value = elapsed;
   aurora.material.uniforms.time.value = elapsed;
   cloudUniforms.cloudTime.value = elapsed;
+  skyUniforms.skyTime.value = elapsed;
   updateSound(dt, elapsed);
 
   readoutTimer -= dt;
