@@ -48,7 +48,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 15. Behind the beavers
 16. Behind the otters
 17. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
-18. Balloon's-eye, over the side of the basket
+18. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
 19. Vulture's-eye
 20. Behind the osprey
 21. Behind the red-tailed hawk
@@ -121,7 +121,7 @@ Every other afternoon, starting with the first, a red and white floatplane appea
 
 ### The hot-air balloon
 
-On calm mornings (the first, then about every other one) a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars now and then in a flare of flame that lights the envelope from inside, which shows best in the dim early light. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
+On calm mornings (the first, then about every other one) a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars in bursts as it climbs, in a flare of flame that lights the envelope from inside, which shows best in the dim early light. Once it levels off the burner stays quiet, and it sinks gently on the way down. Three riders stand in its basket, the pilot and two passengers. Through the flight they take turns pointing the lake out, while the others look or point too, and chatting: one turns to another and talks with a hand going, and the other turns to listen and nods along. Whenever the burner fires, the pilot reaches up and pulls down the cord that lights it. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
 
 ### Day and night
 

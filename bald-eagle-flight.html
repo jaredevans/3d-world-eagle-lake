@@ -4946,11 +4946,13 @@ function updateFloatplane(dt, now) {
 }
 
 // A hot-air balloon on calm mornings (always the first, then about every other one). Soon after sunrise
-// it rises from behind the foothill ahead and to the left, its burner roaring now and then in a flare
-// of flame that lights the envelope from inside, drifts slowly across the far side of the valley and
-// sinks out of sight behind the foothills ahead by early afternoon. The pilot only goes up when the fine
+// it rises from behind the foothill ahead and to the left, its burner roaring in bursts as it climbs, in a
+// flare of flame that lights the envelope from inside, drifts slowly across the far side of the valley and
+// sinks out of sight behind the foothills ahead by early afternoon, the burner quiet on the way down. The pilot only goes up when the fine
 // weather will last the whole flight. The campers stop to point it out to each other as it comes over.
 const BALLOON_HOURS = { from: 6.25, to: 13 };
+const BALLOON_CLIMB_SLOPE = 0.02; // how steeply its path must rise for it to count as climbing
+const balloonClimb = new THREE.Vector3();
 const BALLOON_CHANCE = 0.5;
 const BALLOON_SPOTTED = 0.3; // how far across it is when the campers point it out
 const BALLOON_POINT_SECONDS = 6;
@@ -4982,7 +4984,8 @@ function makeBalloon() {
   const envelope = new THREE.Mesh(new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 24), envelopeMat);
   envelope.position.y = 4.2;
   const wicker = new THREE.MeshLambertMaterial({ color: 0x7a5530 });
-  const basket = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.1, 1.3), wicker);
+  // Roomy enough for the pilot and two passengers
+  const basket = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.1, 1.7), wicker);
   basket.position.y = 0.55;
   const dark = new THREE.MeshLambertMaterial({ color: 0x2a2a2e });
   const burner = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.25, 0.4, 8), dark);
@@ -4991,7 +4994,7 @@ function makeBalloon() {
   // Ropes from the corners of the basket up to the mouth of the envelope
   const up = new THREE.Vector3(0, 1, 0);
   for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-    const from = new THREE.Vector3(x * 0.6, 1.1, z * 0.6);
+    const from = new THREE.Vector3(x * 0.8, 1.1, z * 0.8);
     const to = new THREE.Vector3(x * 0.95, 4.25, z * 0.95);
     const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, from.distanceTo(to), 4), dark);
     rope.position.lerpVectors(from, to, 0.5);
@@ -5039,19 +5042,20 @@ function updateBalloon(dt, now) {
   b.spin += dt * 0.05;
   balloon.rotation.set(Math.sin(now * 0.5) * 0.015, b.spin, Math.sin(now * 0.37) * 0.015);
   balloonSight.copy(balloon.position).y += 13;
-  // Burns come often on the climb, now and then across the valley, and not at all on the way down
+  // The burner fires in bursts only while it's climbing; once it levels off and starts down, it's left off
+  const climbing = balloonPath.getTangentAt(b.along, balloonClimb).y > BALLOON_CLIMB_SLOPE;
   b.burnTimer -= dt;
-  if (b.burnTimer <= 0) {
-    const climbing = b.along < 0.3;
-    const descending = b.along > 0.75;
-    b.burning = !b.burning && !descending;
-    b.burnTimer = b.burning ? 1.2 + Math.random() : climbing ? 2 + Math.random() * 2 : 5 + Math.random() * 4;
+  if (!climbing) b.burning = false;
+  else if (b.burnTimer <= 0) {
+    b.burning = !b.burning;
+    b.burnTimer = b.burning ? 1.2 + Math.random() : 2 + Math.random() * 2;
   }
   b.burn += ((b.burning ? 1 : 0) - b.burn) * easeFactor(dt, 12);
   flame.visible = b.burn > 0.02;
   flame.scale.set(1, b.burn * (0.8 + Math.random() * 0.4), 1);
   // The flame lights the envelope from inside, which shows best in the dim light of early morning
   envelopeMat.emissive.copy(BURN_GLOW).multiplyScalar(b.burn * lerp(0.6, 0.15, smoothstep(sunHeight, 0, 0.3)));
+  updateBalloonRiders(dt, now);
   if (b.along >= 1) b.mode = "away";
 }
 
@@ -5318,6 +5322,107 @@ const campers = CAMPERS.map(outfit => {
   scene.add(camper);
   return camper;
 });
+
+// Three riders in the balloon's basket, the pilot and two passengers, standing at the rim. They're campers'
+// figures, and they pass the flight between pointing out at the lake below and chatting: every few seconds
+// someone points the lake out (and the others look, or point too), or one turns to another to talk, with a
+// hand going and a nod as they speak, while the other turns to listen and nods along. Whenever the burner
+// fires, the pilot reaches up with the free hand and pulls down on the cord that lights it.
+const BALLOON_RIDERS = [
+  { jacket: 0x2f3e66, trousers: 0x3a3a40, skin: 0xd8a07a, hat: 0x4a4038, height: 1.02, at: [-0.45, 0.3], arm: -1 },
+  { jacket: 0xc85a2a, trousers: 0x5a5048, skin: 0xe8bc98, hair: 0xb07a40, height: 0.95, at: [0.45, 0.3], arm: -1 },
+  { jacket: 0x4a7a4a, trousers: 0x4a4440, skin: 0x8a5a3c, height: 1, at: [0, -0.4], arm: 1 }
+];
+const RIDER_LOOK = new THREE.Vector3(LAKE.x, LAKE.y, LAKE.z);
+const RIDER_FACE = new THREE.Vector3(0, 1.66, 0); // where another rider looks at them, in their own frame
+const RIDER_TURN_TO_TALK = 0.6; // how far round from the lake they turn to someone they're talking with
+const riderAim = new THREE.Vector3();
+const cordReach = new THREE.Vector3();
+const riderSpot = new THREE.Vector3();
+const riderGaze = new THREE.Vector3();
+const riderRest = new THREE.Quaternion();
+const riderGesture = new THREE.Quaternion();
+const balloonRiders = BALLOON_RIDERS.map(outfit => {
+  const rider = makeCamper(outfit);
+  rider.scale.setScalar(outfit.height);
+  rider.position.set(outfit.at[0], 0, outfit.at[1]);
+  Object.assign(rider.userData, { pointing: outfit.arm, point: 0, talk: 0, listen: 0, yaw: null, wantPoint: false, gaze: new THREE.Vector3() });
+  balloon.add(rider);
+  return rider;
+});
+// The cord hanging from the burner, with a red toggle on the end, pulled down while it's firing
+const pilot = balloonRiders[0];
+const BURNER_CORD = { x: -0.2, z: 0.15, top: 2.25, length: 0.32, pull: 0.14 };
+const burnerCord = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 5).translate(0, -0.5, 0), new THREE.MeshLambertMaterial({ color: 0x2a2a2e }));
+burnerCord.position.set(BURNER_CORD.x, BURNER_CORD.top, BURNER_CORD.z);
+const cordToggle = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), new THREE.MeshLambertMaterial({ color: 0xc0392b }));
+balloon.add(burnerCord, cordToggle);
+pilot.userData.pull = 0;
+// What's happening in the basket just now: someone pointing the lake out, or two of them talking
+const balloonChat = { scene: "point", timer: 0, speaker: 0, listener: 1 };
+function nextBalloonScene() {
+  const c = balloonChat;
+  c.scene = Math.random() < 0.45 ? "point" : "chat";
+  c.timer = c.scene === "point" ? 3.5 + Math.random() * 2.5 : 4 + Math.random() * 3;
+  c.speaker = Math.floor(Math.random() * 3);
+  c.listener = (c.speaker + 1 + Math.floor(Math.random() * 2)) % 3;
+  balloonRiders.forEach((rider, i) => (rider.userData.wantPoint = c.scene === "point" && (i === c.speaker || Math.random() < 0.35)));
+}
+function updateBalloonRiders(dt, now) {
+  const c = balloonChat;
+  if ((c.timer -= dt) <= 0) nextBalloonScene();
+  // The cord comes down as the pilot pulls it, and the burner roars
+  pilot.userData.pull += ((balloonState.burning ? 1 : 0) - pilot.userData.pull) * easeFactor(dt, 10);
+  const cordLength = BURNER_CORD.length + BURNER_CORD.pull * pilot.userData.pull;
+  burnerCord.scale.y = cordLength;
+  cordToggle.position.set(BURNER_CORD.x, BURNER_CORD.top - cordLength, BURNER_CORD.z);
+  balloonRiders.forEach((rider, i) => {
+    const u = rider.userData;
+    const { upper, head, arms, pointing, seed } = u;
+    const role = c.scene === "chat" ? (i === c.speaker ? "speak" : i === c.listener ? "listen" : "watch") : u.wantPoint ? "point" : "watch";
+    const partner = balloonRiders[role === "speak" ? c.listener : c.speaker];
+    rider.getWorldPosition(riderSpot);
+    partner.localToWorld(riderAim.copy(RIDER_FACE));
+    // Facing out over the lake, or turned part way round to whoever they're talking with
+    const lakeYaw = Math.atan2(RIDER_LOOK.x - riderSpot.x, RIDER_LOOK.z - riderSpot.z);
+    const partnerYaw = Math.atan2(riderAim.x - riderSpot.x, riderAim.z - riderSpot.z);
+    const talking = role === "speak" || role === "listen";
+    const yaw = talking ? lakeYaw + turnTowards(lakeYaw, partnerYaw) * RIDER_TURN_TO_TALK : lakeYaw;
+    if (u.yaw === null) u.yaw = yaw;
+    u.yaw += turnTowards(u.yaw, yaw) * easeFactor(dt, 3);
+    rider.rotation.y = u.yaw - balloon.rotation.y;
+    u.point += ((role === "point" ? 1 : 0) - u.point) * easeFactor(dt, 3);
+    u.talk += ((role === "speak" ? 1 : 0) - u.talk) * easeFactor(dt, 3);
+    u.listen += ((role === "listen" ? 1 : 0) - u.listen) * easeFactor(dt, 3);
+    // Eyes on whoever they're talking with, or out on the lake
+    if (u.gaze.lengthSq() === 0) u.gaze.copy(RIDER_LOOK);
+    u.gaze.lerp(talking ? riderAim : RIDER_LOOK, easeFactor(dt, 4));
+    rider.updateMatrixWorld();
+    upper.worldToLocal(riderGaze.copy(RIDER_LOOK));
+    for (const { shoulder, side } of arms) {
+      riderRest.setFromEuler(armSwing.set(-0.35, 0, side * 0.12)); // resting on the rim
+      shoulder.quaternion.copy(riderRest);
+      if (side !== pointing) {
+        // The pilot's free hand up on the burner cord
+        if (rider === pilot && u.pull > 0.001) {
+          upper.worldToLocal(balloon.localToWorld(cordReach.copy(cordToggle.position)));
+          armAim.setFromUnitVectors(ARM_DOWN, cordReach.sub(shoulder.position).normalize());
+          shoulder.quaternion.slerp(armAim, u.pull);
+        }
+        continue;
+      }
+      // Pointing out at the lake, or a hand going as they talk
+      armAim.setFromUnitVectors(ARM_DOWN, lookLocal.copy(riderGaze).sub(shoulder.position).normalize());
+      riderGesture.setFromEuler(armSwing.set(-1 + 0.3 * Math.sin(now * 5 + seed), 0, side * (0.25 + 0.15 * Math.sin(now * 3.7 + seed))));
+      shoulder.quaternion.slerp(armAim, u.point).slerp(riderGesture, u.talk);
+    }
+    upper.worldToLocal(riderGaze.copy(u.gaze));
+    lookLocal.copy(riderGaze).sub(head.position);
+    // A quick nod now and then while speaking, a slow one while listening
+    const nod = Math.sin(now * 9 + seed) * 0.06 * u.talk + Math.max(Math.sin(now * 2.2 + seed), 0) * 0.12 * u.listen;
+    head.rotation.set(-Math.atan2(lookLocal.y, Math.hypot(lookLocal.x, lookLocal.z)) + nod, clamp(Math.atan2(lookLocal.x, lookLocal.z), -1.2, 1.2), 0);
+  });
+}
 
 // On a calm, clear morning they take the canoe out from the shore below the camp and paddle a
 // slow loop of the open water, leaving a wake, and drift back in to land. If the sky starts to
@@ -7859,15 +7964,15 @@ function updateLookAround(dt) {
 }
 
 // Cycle view (C): a round of vantage points among the animals and landmarks, skipping any whose subject
-// isn't about just now. It rides at the eye of the eagle, an eaglet, a duck, a dragonfly, the balloon
-// and a vulture, chases the floatplane and the owl, or watches from just above and behind the moose,
-// the heron, the turtles, a frog, the camp, the raccoon, the deer, the fox, the beavers, the otters,
-// the bear (or from its side as it fishes), the osprey, the red-tailed hawk and the falls. Most keep
-// turning to look out over the lake; the duck and the dragonfly look where they're going, the
-// floatplane, owl, beavers and otters are followed from behind, and the camp and deer views zoom to
-// keep everyone in frame. After 15 seconds at a view the camera flies on to the next, round and round;
-// each press moves on straight away, and a press after the last goes back to the usual view. If a
-// subject goes (the balloon lands, the bear heads home), it moves on by itself.
+// isn't about just now. It rides at the eye of the eagle, an eaglet, a duck, a dragonfly and a vulture,
+// chases the floatplane and the owl, or watches from just above and behind the moose, the heron, the
+// turtles, a frog, the camp, the raccoon, the deer, the fox, the beavers, the otters, the bear (or from
+// its side as it fishes), the balloon, the osprey, the red-tailed hawk and the falls. Most keep turning
+// to look out over the lake; the duck and the dragonfly look where they're going, the floatplane, owl,
+// beavers and otters are followed from behind, and the camp and deer views zoom to keep everyone in
+// frame. After 15 seconds at a view the camera flies on to the next, round and round; each press moves
+// on straight away, and a press after the last goes back to the usual view. If a subject goes (the
+// balloon lands, the bear heads home), it moves on by itself.
 const LAKE_CENTRE = new THREE.Vector3(LAKE.x, LAKE.y, LAKE.z);
 const CYCLE_FOV_LIMITS = [22, 70];
 const CYCLE_PITCH_LIMITS = [-1.25, 0.6];
@@ -7979,6 +8084,16 @@ function bearView() {
   keepAboveGround(cycle.eye);
   cycle.target.copy(bear.position).y += 0.8;
 }
+// The balloon from a little way behind it, on its far side from the lake and level with the mouth of the
+// envelope: the lower half of the canopy filling the top of the view and the basket hanging beneath
+// (clear of the buttons along the bottom of the screen), with the valley and the lake beyond. It's swung
+// a little way round to one side, so the riders' arms show as they point out towards the lake.
+const BALLOON_BEHIND = { back: 18, up: 6, aim: 5, ahead: 30, swing: 0.6 };
+function balloonView() {
+  cycleAway.subVectors(balloon.position, LAKE_CENTRE).setY(0).normalize().applyAxisAngle(WORLD_UP, BALLOON_BEHIND.swing);
+  cycle.eye.copy(balloon.position).addScaledVector(cycleAway, BALLOON_BEHIND.back).y = balloon.position.y + BALLOON_BEHIND.up;
+  cycle.target.copy(balloon.position).addScaledVector(cycleAway, -BALLOON_BEHIND.ahead).y = balloon.position.y + BALLOON_BEHIND.aim;
+}
 // The frog being watched, kept while it's on its pad
 function watchedFrog() {
   if (!cycle.frog || !cycle.frog.visible) cycle.frog = firstVisible(frogs) || null;
@@ -8017,7 +8132,7 @@ const CYCLE_VIEWS = [
   { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
   { name: "The bear", present: () => bear.visible, place: bearView },
   // (only once it's up out of the foothill it rises from and sinks back behind)
-  { name: "Balloon’s-eye", ride: true, priority: true, present: () => balloon.visible && balloon.position.y > 12, place: eyeView(() => balloon, new THREE.Vector3(0, 1.7, 0), { clear: 1.3 }) }, // just over the basket's side, clear of the ropes
+  { name: "Behind the balloon", ride: true, priority: true, present: () => balloon.visible && balloon.position.y > 12, place: balloonView },
   { name: "Vulture’s-eye", ride: true, present: () => vultures.some(vulture => vulture.visible), place: eyeView(() => firstVisible(vultures), new THREE.Vector3(0, 0.04, 0.36), { clear: 1 }) },
   { name: "Behind the osprey", present: () => osprey.visible, place: behindView(() => osprey.position, 8, 3) },
   { name: "Behind the red-tailed hawk", present: () => hawk.visible, place: behindView(() => hawk.position, 9, 3) },
