@@ -7876,9 +7876,13 @@ const CYCLE_VIEW_SECONDS = 15;
 const CYCLE_FLIGHT = { speed: 12, minSeconds: 4, maxSeconds: 7, arc: 0.25, maxArc: 30 };
 const cycle = {
   on: false, index: -1, fresh: false, yaw: 0, pitch: 0, fov: CAMERA_FOV, frog: null, timer: 0,
-  // The flight closes the gap from where the camera was to the view as it moves, so it keeps pace with a
-  // subject on the move (a fast floatplane would otherwise race past it on the way)
-  flight: { time: 0, seconds: 0, arc: 0, fov: CAMERA_FOV, from: new THREE.Vector3(), gap: new THREE.Vector3(), facing: new THREE.Quaternion() },
+  // The flight closes the gap from where the camera was to the view, picking up the view's own movement
+  // as it goes, so it gathers speed gently and then keeps pace with a subject on the move (a fast
+  // floatplane would otherwise race past it on the way)
+  flight: {
+    time: 0, seconds: 0, arc: 0, fov: CAMERA_FOV,
+    from: new THREE.Vector3(), start: new THREE.Vector3(), gap: new THREE.Vector3(), facing: new THREE.Quaternion()
+  },
   // Where the camera last showed a view: flights start from here, since by the time the timer moves
   // on, the camera has already been placed for the usual view this frame
   shown: { valid: false, fov: CAMERA_FOV, position: new THREE.Vector3(), facing: new THREE.Quaternion() },
@@ -7971,11 +7975,12 @@ const TENT_SPOT = new THREE.Vector3(TENT.x, groundY + 1, TENT.z);
 const tentFrame = [TENT_SPOT];
 const herdCentre = new THREE.Vector3();
 // `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view;
-// `priority`: flown to straight away when its subject turns up
+// `priority`: flown to straight away when its subject turns up; `find`: a subject quick enough to slip out
+// of sight on the way in, which the gaze picks up early in the flight and keeps on until it arrives
 const CYCLE_VIEWS = [
   { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
   { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
-  { name: "Behind the floatplane", ride: true, priority: true, present: () => planeInSight(), place: chaseView(() => floatplane, 16, 5, 10) },
+  { name: "Behind the floatplane", ride: true, priority: true, present: () => planeInSight(), place: chaseView(() => floatplane, 16, 5, 10), find: () => floatplane.position },
   { name: "Behind the moose", present: () => moose.visible, place: behindView(() => moose.position, 7, 4) },
   { name: "Behind the heron", present: () => heron.visible, place: behindView(() => heron.position, 5, 3) },
   { name: "Duck’s-eye", ride: true, present: () => true, place: eyeView(() => ducks[0], new THREE.Vector3(0, 0.24, 0.3), { ahead: true }) },
@@ -8077,6 +8082,7 @@ function updateCycleView(dt) {
   const fov = view.frame ? fovToFrame(view.frame(), cycle.position, cycle.direction) : CAMERA_FOV;
   cycle.fov = cycle.fresh ? fov : cycle.fov + (fov - cycle.fov) * easeFactor(dt, 1.5);
   if (cycle.fresh) {
+    flight.start.copy(cycle.position);
     flight.gap.subVectors(flight.from, cycle.position);
     const gap = flight.gap.length();
     flight.seconds = clamp(gap / CYCLE_FLIGHT.speed, CYCLE_FLIGHT.minSeconds, CYCLE_FLIGHT.maxSeconds);
@@ -8086,6 +8092,9 @@ function updateCycleView(dt) {
   cycle.facing.setFromRotationMatrix(cycle.turn.lookAt(cycle.position, cycle.look, WORLD_UP));
 }
 
+const findFacing = new THREE.Quaternion();
+const framingFacing = new THREE.Quaternion();
+const findTurn = new THREE.Matrix4();
 function updateCamera(dt) {
   // Following: behind the eagle, swung round by any drag
   const behind = Math.atan2(-heading.x, -heading.z);
@@ -8131,10 +8140,19 @@ function updateCamera(dt) {
     const { flight } = cycle;
     const along = flight.time / Math.max(flight.seconds, 1e-3);
     const t = smootherstep(along, 0, 1);
-    camera.position.copy(cycle.position).addScaledVector(flight.gap, 1 - t).y += Math.sin(Math.PI * t) * flight.arc;
+    const keepPace = smootherstep(along, 0, 0.4);
+    camera.position.subVectors(cycle.position, flight.start).multiplyScalar(keepPace).add(flight.start).addScaledVector(flight.gap, 1 - t);
+    camera.position.y += Math.sin(Math.PI * t) * flight.arc;
     // The gaze swings round a touch ahead of the glide, so it's settled on the new view as it arrives
     const turn = smootherstep(along, 0, 0.85);
-    camera.quaternion.copy(flight.facing).slerp(cycle.facing, turn);
+    const { find } = CYCLE_VIEWS[cycle.index];
+    if (find && along < 1) {
+      // Turning to the subject in the first part of the flight and keeping it in view, then easing
+      // into the view's own framing at the end, aimed from where the camera actually is
+      findFacing.setFromRotationMatrix(findTurn.lookAt(camera.position, find(), WORLD_UP));
+      framingFacing.setFromRotationMatrix(findTurn.lookAt(camera.position, cycle.look, WORLD_UP));
+      camera.quaternion.copy(flight.facing).slerp(findFacing, smootherstep(along, 0, 0.3)).slerp(framingFacing, smootherstep(along, 0.7, 1));
+    } else camera.quaternion.copy(flight.facing).slerp(cycle.facing, turn);
     camera.up.copy(WORLD_UP);
     cycleFov = lerp(flight.fov, cycle.fov, turn);
     Object.assign(cycle.shown, { valid: true, fov: cycleFov });
