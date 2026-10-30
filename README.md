@@ -33,7 +33,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 
 1. Eagle's-eye
 2. Eaglet's-eye, from the nest
-3. Floatplane's-eye, out of a cabin window under the wing
+3. Behind the floatplane, chasing it
 4. Behind the moose
 5. Behind the heron
 6. Duck's-eye, low on the water
@@ -49,7 +49,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 16. Vulture's-eye
 17. Above the falls
 
-The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
+The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going, the floatplane is chased from just above and behind, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane and the balloon take priority: when either turns up, the camera drops what it's watching and flies straight to it, then carries on round from there. A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
 The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out. In Cycle view it also names the view.
 

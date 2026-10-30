@@ -7859,11 +7859,11 @@ function updateLookAround(dt) {
 }
 
 // Cycle view (C): a round of vantage points among the animals and landmarks, skipping any whose subject
-// isn't about just now. It rides at the eye of the eagle, an eaglet, the floatplane, a duck, a dragonfly,
-// the balloon and a vulture, or watches from just above and behind the moose, the heron, the turtles, a
-// frog, the camp, the deer, the beavers, the otters, the bear and the falls. Most keep turning to look
-// out over the lake; the duck and the dragonfly look where they're going, the beavers and otters are
-// followed from behind, and the camp and deer views zoom to keep everyone in frame. After 15 seconds at a
+// isn't about just now. It rides at the eye of the eagle, an eaglet, a duck, a dragonfly, the balloon and
+// a vulture, chases the floatplane, or watches from just above and behind the moose, the heron, the
+// turtles, a frog, the camp, the deer, the beavers, the otters, the bear and the falls. Most keep turning
+// to look out over the lake; the duck and the dragonfly look where they're going, the floatplane, beavers
+// and otters are followed from behind, and the camp and deer views zoom to keep everyone in frame. After 15 seconds at a
 // view the camera flies on to the next, round and round; each press moves on straight away, and a press
 // after the last goes back to the usual view. If a subject goes (the balloon lands, the bear heads
 // home), it moves on by itself.
@@ -7876,7 +7876,9 @@ const CYCLE_VIEW_SECONDS = 15;
 const CYCLE_FLIGHT = { speed: 12, minSeconds: 4, maxSeconds: 7, arc: 0.25, maxArc: 30 };
 const cycle = {
   on: false, index: -1, fresh: false, yaw: 0, pitch: 0, fov: CAMERA_FOV, frog: null, timer: 0,
-  flight: { time: 0, seconds: 0, arc: 0, fov: CAMERA_FOV, from: new THREE.Vector3(), facing: new THREE.Quaternion() },
+  // The flight closes the gap from where the camera was to the view as it moves, so it keeps pace with a
+  // subject on the move (a fast floatplane would otherwise race past it on the way)
+  flight: { time: 0, seconds: 0, arc: 0, fov: CAMERA_FOV, from: new THREE.Vector3(), gap: new THREE.Vector3(), facing: new THREE.Quaternion() },
   // Where the camera last showed a view: flights start from here, since by the time the timer moves
   // on, the camera has already been placed for the usual view this frame
   shown: { valid: false, fov: CAMERA_FOV, position: new THREE.Vector3(), facing: new THREE.Quaternion() },
@@ -7927,6 +7929,25 @@ function behindView(spot, back, up, { lean = 0.6, past } = {}) {
     else cycle.target.copy(at).addScaledVector(cycleAway, -past);
   };
 }
+// Chasing from just above and behind, the way it's heading, and looking on past it. The heading is
+// smoothed, so the camera swings round gently as it turns.
+function chaseView(subject, back, up, ahead) {
+  const heading = new THREE.Vector3(0, 0, -1);
+  return dt => {
+    const object = subject();
+    object.getWorldDirection(cycleAway).setY(0);
+    if (cycleAway.lengthSq() > 1e-6) {
+      cycleAway.normalize();
+      if (cycle.fresh) heading.copy(cycleAway);
+      else heading.lerp(cycleAway, easeFactor(dt, 5));
+      if (heading.lengthSq() < 1e-6) heading.copy(cycleAway);
+      heading.normalize();
+    }
+    cycle.eye.copy(object.position).addScaledVector(heading, -back).y = object.position.y + up;
+    keepAboveGround(cycle.eye);
+    cycle.target.copy(object.position).addScaledVector(heading, ahead);
+  };
+}
 // Following a swimming group from just above and behind, the way the first of them is heading
 function trailView(group, back, up) {
   return () => {
@@ -7949,11 +7970,12 @@ const FALLS_TOP = new THREE.Vector3(FALLS.x, groundY + FALLS.height, FALLS.z);
 const TENT_SPOT = new THREE.Vector3(TENT.x, groundY + 1, TENT.z);
 const tentFrame = [TENT_SPOT];
 const herdCentre = new THREE.Vector3();
-// `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view
+// `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view;
+// `priority`: flown to straight away when its subject turns up
 const CYCLE_VIEWS = [
   { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
   { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
-  { name: "Floatplane’s-eye", ride: true, present: () => planeInSight(), place: eyeView(() => floatplane, new THREE.Vector3(0, 2.3, 1.9), { clear: 0.9 }) }, // at a cabin window, under the wing
+  { name: "Behind the floatplane", ride: true, priority: true, present: () => planeInSight(), place: chaseView(() => floatplane, 16, 5, 10) },
   { name: "Behind the moose", present: () => moose.visible, place: behindView(() => moose.position, 7, 4) },
   { name: "Behind the heron", present: () => heron.visible, place: behindView(() => heron.position, 5, 3) },
   { name: "Duck’s-eye", ride: true, present: () => true, place: eyeView(() => ducks[0], new THREE.Vector3(0, 0.24, 0.3), { ahead: true }) },
@@ -7973,7 +7995,7 @@ const CYCLE_VIEWS = [
   { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
   { name: "Behind the bear", present: () => bear.visible, place: behindView(() => bear.position, 7, 4) },
   // (only once it's up out of the foothill it rises from and sinks back behind)
-  { name: "Balloon’s-eye", ride: true, present: () => balloon.visible && balloon.position.y > 12, place: eyeView(() => balloon, new THREE.Vector3(0, 1.7, 0), { clear: 1.3 }) }, // just over the basket's side, clear of the ropes
+  { name: "Balloon’s-eye", ride: true, priority: true, present: () => balloon.visible && balloon.position.y > 12, place: eyeView(() => balloon, new THREE.Vector3(0, 1.7, 0), { clear: 1.3 }) }, // just over the basket's side, clear of the ropes
   { name: "Vulture’s-eye", ride: true, present: () => vultures.some(vulture => vulture.visible), place: eyeView(() => firstVisible(vultures), new THREE.Vector3(0, 0.04, 0.36), { clear: 1 }) },
   { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) }
 ];
@@ -8011,15 +8033,31 @@ function nextCycleView(wrap = false) {
   const first = CYCLE_VIEWS.findIndex(view => view.present());
   showCycleView(first);
 }
+// The floatplane and the balloon are the scene's big events, so when one turns up (after being away a
+// while, not just dipping out of sight for a moment) the camera drops what it's watching and flies to it.
+// From there the round carries on as usual.
+const CYCLE_PRIORITY_ABSENCE = 5; // seconds a subject must have been away to count as turning up
+function checkPriorityViews(dt) {
+  CYCLE_VIEWS.forEach((view, i) => {
+    if (!view.priority) return;
+    if (!view.present()) {
+      view.absent += dt;
+      return;
+    }
+    if (view.absent > CYCLE_PRIORITY_ABSENCE && cycle.index !== i) showCycleView(i);
+    view.absent = 0;
+  });
+}
 function updateCycleView(dt) {
   if (!cycle.on) return;
+  checkPriorityViews(dt);
   // Each view holds for a while once the camera's got there, then it's on to the next
   const { flight } = cycle;
   flight.time += dt;
   if (flight.time >= flight.seconds) cycle.timer -= dt;
   if (cycle.timer <= 0 || !CYCLE_VIEWS[cycle.index].present()) nextCycleView(true);
   const view = CYCLE_VIEWS[cycle.index];
-  view.place();
+  view.place(dt);
   if (cycle.fresh || view.ride) cycle.position.copy(cycle.eye);
   else cycle.position.lerp(cycle.eye, easeFactor(dt, 3));
   // Turn smoothly to keep facing the lake (or the way ahead), however the subject twists and turns
@@ -8039,7 +8077,8 @@ function updateCycleView(dt) {
   const fov = view.frame ? fovToFrame(view.frame(), cycle.position, cycle.direction) : CAMERA_FOV;
   cycle.fov = cycle.fresh ? fov : cycle.fov + (fov - cycle.fov) * easeFactor(dt, 1.5);
   if (cycle.fresh) {
-    const gap = flight.from.distanceTo(cycle.position);
+    flight.gap.subVectors(flight.from, cycle.position);
+    const gap = flight.gap.length();
     flight.seconds = clamp(gap / CYCLE_FLIGHT.speed, CYCLE_FLIGHT.minSeconds, CYCLE_FLIGHT.maxSeconds);
     flight.arc = Math.min(gap * CYCLE_FLIGHT.arc, CYCLE_FLIGHT.maxArc);
   }
@@ -8092,7 +8131,7 @@ function updateCamera(dt) {
     const { flight } = cycle;
     const along = flight.time / Math.max(flight.seconds, 1e-3);
     const t = smootherstep(along, 0, 1);
-    camera.position.lerpVectors(flight.from, cycle.position, t).y += Math.sin(Math.PI * t) * flight.arc;
+    camera.position.copy(cycle.position).addScaledVector(flight.gap, 1 - t).y += Math.sin(Math.PI * t) * flight.arc;
     // The gaze swings round a touch ahead of the glide, so it's settled on the new view as it arrives
     const turn = smootherstep(along, 0, 0.85);
     camera.quaternion.copy(flight.facing).slerp(cycle.facing, turn);
@@ -8198,6 +8237,8 @@ function setCycle(on) {
   if (on === cycle.on) return;
   cycle.on = on;
   cycle.shown.valid = false; // the first flight sets off from the usual view
+  // Anything already out when the round starts just takes its turn
+  for (const view of CYCLE_VIEWS) if (view.priority) view.absent = view.present() ? 0 : Infinity;
   cycleButton.setAttribute("aria-pressed", String(on));
   viewName.hidden = !on;
   if (on) {
