@@ -7876,6 +7876,7 @@ const CYCLE_VIEW_SECONDS = 15;
 const CYCLE_FLIGHT = { speed: 12, minSeconds: 4, maxSeconds: 7, arc: 0.25, maxArc: 30 };
 const cycle = {
   on: false, index: -1, fresh: false, yaw: 0, pitch: 0, fov: CAMERA_FOV, frog: null, timer: 0,
+  resumeAfter: null, // the view a priority subject broke into, which the round picks up from afterwards
   // The flight closes the gap from where the camera was to the view, picking up the view's own movement
   // as it goes, so it gathers speed gently and then keeps pace with a subject on the move (a fast
   // floatplane would otherwise race past it on the way)
@@ -8029,8 +8030,13 @@ function showCycleView(index) {
   viewName.textContent = `Cycle view: ${CYCLE_VIEWS[index].name}`;
 }
 // On to the next view whose subject is about. After the last, a press goes back to the usual view,
-// while the timer (`wrap`) carries on round from the first.
+// while the timer (`wrap`) carries on round from the first. Leaving a priority view that broke in, it
+// carries on from the view it broke into rather than from its own place in the round.
 function nextCycleView(wrap = false) {
+  if (cycle.resumeAfter !== null) {
+    cycle.index = cycle.resumeAfter;
+    cycle.resumeAfter = null;
+  }
   for (let i = cycle.index + 1; i < CYCLE_VIEWS.length; i++) {
     if (CYCLE_VIEWS[i].present()) return showCycleView(i);
   }
@@ -8040,7 +8046,7 @@ function nextCycleView(wrap = false) {
 }
 // The floatplane and the balloon are the scene's big events, so when one turns up (after being away a
 // while, not just dipping out of sight for a moment) the camera drops what it's watching and flies to it.
-// From there the round carries on as usual.
+// Afterwards the round picks up again after the view it broke into.
 const CYCLE_PRIORITY_ABSENCE = 5; // seconds a subject must have been away to count as turning up
 function checkPriorityViews(dt) {
   CYCLE_VIEWS.forEach((view, i) => {
@@ -8049,7 +8055,11 @@ function checkPriorityViews(dt) {
       view.absent += dt;
       return;
     }
-    if (view.absent > CYCLE_PRIORITY_ABSENCE && cycle.index !== i) showCycleView(i);
+    if (view.absent > CYCLE_PRIORITY_ABSENCE && cycle.index !== i) {
+      // (if one priority view breaks into another, the round still goes back to where it was before)
+      if (cycle.resumeAfter === null) cycle.resumeAfter = cycle.index;
+      showCycleView(i);
+    }
     view.absent = 0;
   });
 }
@@ -8255,6 +8265,7 @@ function setCycle(on) {
   if (on === cycle.on) return;
   cycle.on = on;
   cycle.shown.valid = false; // the first flight sets off from the usual view
+  cycle.resumeAfter = null;
   // Anything already out when the round starts just takes its turn
   for (const view of CYCLE_VIEWS) if (view.priority) view.absent = view.present() ? 0 : Infinity;
   cycleButton.setAttribute("aria-pressed", String(on));
