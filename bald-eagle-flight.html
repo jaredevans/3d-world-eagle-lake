@@ -1548,12 +1548,133 @@ const spray = Array.from({ length: 10 }, () => {
   falls.add(puff);
   return puff;
 });
+// Greenery round the falls, kept damp by the spray: ferns round the pool and on the lower ledges of the
+// crag, fronds hanging down beside the falling water, and cushions of dark moss on top of the rocks
+const fernGreens = [0x3f7a3a, 0x4d8a40, 0x36683a].map(color => new THREE.MeshLambertMaterial({ color, side: THREE.DoubleSide }));
+const mossMat = new THREE.MeshLambertMaterial({ color: 0x46622a });
+// A frond: a strip rising up and out along +z and arching over towards its tip, its edge cut into
+// leaflets. `lift` is the angle it leaves the ground at (negative hangs it down), `droop` how far the
+// tip bends back down.
+function frondGeometry(length, width, lift, droop) {
+  const segments = 16;
+  const geo = new THREE.PlaneGeometry(width, length, 1, segments).translate(0, length / 2, 0);
+  const position = geo.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const v = clamp(y / length, 0, 1); // (a hair below 0 at the base would make the taper below NaN)
+    const row = Math.round(v * segments);
+    const taper = Math.sin(Math.PI * Math.min(v * 1.1, 1)) ** 0.6 * (row % 2 ? 0.45 : 1);
+    position.setXYZ(i, x * taper, y * Math.sin(lift) - (droop * y * y) / length, y * Math.cos(lift));
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+const fernFronds = [frondGeometry(0.7, 0.2, 1.1, 0.55), frondGeometry(0.55, 0.17, 1.25, 0.45)];
+function makeFern(random, size) {
+  const fern = new THREE.Group();
+  const count = 6 + Math.floor(random() * 3);
+  for (let i = 0; i < count; i++) {
+    const frond = new THREE.Mesh(fernFronds[i % 2], fernGreens[Math.floor(random() * fernGreens.length)]);
+    frond.rotation.y = (i / count) * Math.PI * 2 + random() * 0.4;
+    fern.add(frond);
+  }
+  fern.scale.setScalar(size);
+  return fern;
+}
+const fallsGreenery = new THREE.Group();
+const greenRand = mulberry32(37);
+// Round the pool, either side and behind, but not across the stream where it runs out
+const poolCentre = { x: POOL.x - FALLS.x, z: POOL.z - FALLS.z };
+for (let i = 0; i < 16; i++) {
+  const angle = (greenRand() < 0.5 ? 1 : -1) * (0.75 + greenRand() * 1.9);
+  const reach = POOL.radius + 0.4 + greenRand() * 1.1;
+  const fern = makeFern(greenRand, 0.9 + greenRand() * 0.7);
+  fern.position.set(poolCentre.x + Math.sin(angle) * reach, 0, poolCentre.z + Math.cos(angle) * reach);
+  fallsGreenery.add(fern);
+}
+// On the ledges of the lower rocks either side, and cushions of moss on top of the rocks
+const CRAG_LEDGES = [[-8.3, 0, 4.6], [8.4, -0.2, 5.2], [-10.4, 0.8, 2.4], [10.6, 0.6, 2.8], [-5.7, -0.8, FALLS.height - 2.6], [5.9, -1, FALLS.height - 2.2], [-2.1, 1.4, 0.7], [2.2, 1.3, 0.8]];
+for (const [x, z, height] of CRAG_LEDGES) {
+  const fern = makeFern(greenRand, 0.8 + greenRand() * 0.5);
+  fern.position.set(x + (greenRand() - 0.5) * 0.8, height - 0.4, z + 0.6);
+  const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), mossMat);
+  const size = 0.35 + greenRand() * 0.35;
+  moss.scale.set(size * 1.3, size * 0.3, size);
+  moss.position.set(x - 0.3 + greenRand() * 0.6, height - 0.35, z - 0.2);
+  fallsGreenery.add(fern, moss);
+}
+// Fronds hanging down the rock face either side of the falling water, stirring in the spray
+const fernsHanging = [];
+for (const [x, top] of [[-1.7, FALLS.height - 0.6], [-2.3, FALLS.height - 1.5], [-3.6, FALLS.height - 0.9], [1.8, FALLS.height - 0.5], [2.5, FALLS.height - 1.7], [3.7, FALLS.height - 0.7]]) {
+  const frond = new THREE.Mesh(frondGeometry(1.2 + greenRand() * 0.8, 0.22, -1.35, 0), fernGreens[Math.floor(greenRand() * fernGreens.length)]);
+  frond.position.set(x, top, -0.1);
+  frond.userData.phase = greenRand() * Math.PI * 2;
+  fernsHanging.push(frond);
+  fallsGreenery.add(frond);
+}
+falls.add(fallsGreenery);
 falls.position.set(FALLS.x, groundY, FALLS.z);
 castShadows(falls);
 scene.add(falls);
+// The overhang beside the falls, where a drop falls now and then
+const FALLS_DRIP_SPOTS = [-1.8, 1.8].map(x => new THREE.Vector3(FALLS.x + x, groundY + FALLS.height - 0.3, FALLS.z + 0.2));
+let fallsDripTimer = 0;
+
+// Fish leaping at the falls through the day: every couple of seconds one hurls itself up out of the pool
+// at the falling water, flexing as it goes, and drops back with a splash (the falls are far too high
+// for any of them to make it). On some days the bear comes to watch, and swipes at them as they go up.
+const FALLS_LEAP_HOURS = { from: 6.5, to: 20 };
+const FALLS_LEAP_GAP = [1.2, 3.5]; // seconds between leaps
+const fallsLeapers = Array.from({ length: 3 }, () => {
+  const leaper = makeFish();
+  leaper.scale.setScalar(1.6); // salmon-sized
+  leaper.visible = false;
+  scene.add(leaper);
+  return { fish: leaper, time: 0, from: new THREE.Vector3(), velocity: new THREE.Vector3() };
+});
+let fallsLeapTimer = 1;
+const leapAhead = new THREE.Vector3();
+function updateFallsLeapers(dt, now) {
+  fallsLeapTimer -= dt;
+  if (fallsLeapTimer <= 0) {
+    fallsLeapTimer = lerp(...FALLS_LEAP_GAP, Math.random());
+    const free = fallsLeapers.find(leaper => !leaper.fish.visible);
+    if (free && hour >= FALLS_LEAP_HOURS.from && hour < FALLS_LEAP_HOURS.to) {
+      // Up out of the pool just below the falls, at them
+      free.from.set(FALLS.x + (Math.random() - 0.5) * 1.8, LAKE.y, FALLS.z + 0.7 + Math.random() * 0.9);
+      free.velocity.set((Math.random() - 0.5) * 0.6, 5.5 + Math.random() * 2.5, -0.4 - Math.random() * 0.6);
+      free.time = 0;
+      free.fish.visible = true;
+      free.fish.position.copy(free.from);
+      splash(free.from, 0.2);
+      bearEyesLeaper(free);
+    }
+  }
+  for (const leaper of fallsLeapers) {
+    if (!leaper.fish.visible) continue;
+    leaper.time += dt;
+    const t = leaper.time;
+    leaper.fish.position.copy(leaper.from).addScaledVector(leaper.velocity, t).y -= 4.9 * t * t;
+    // Nose along its arc, flexing its tail as it goes
+    leapAhead.copy(leaper.velocity).setY(leaper.velocity.y - 9.8 * t).add(leaper.fish.position);
+    leaper.fish.lookAt(leapAhead);
+    leaper.fish.rotateY(Math.sin(now * 28) * 0.25);
+    if (t > 0.3 && leaper.fish.position.y < LAKE.y) {
+      leaper.fish.visible = false;
+      splash(leaper.fish.position.setY(LAKE.y), 0.3);
+    }
+  }
+}
 const sprayColor = new THREE.Color();
 function updateFalls(dt, now) {
   fallsUniforms.time.value = now;
+  updateFallsLeapers(dt, now);
+  for (const frond of fernsHanging) frond.rotation.z = Math.sin(now * 0.9 + frond.userData.phase) * 0.06;
+  if ((fallsDripTimer -= dt) <= 0) {
+    fallsDripTimer = 0.3 + Math.random() * 0.7;
+    drip(FALLS_DRIP_SPOTS[Math.floor(Math.random() * FALLS_DRIP_SPOTS.length)], 0.6);
+  }
   sprayColor.copy(swayUniforms.light.value).multiplyScalar(0.9);
   churn.material.color.copy(sprayColor);
   churn.material.opacity = 0.65 + 0.15 * Math.sin(now * 3.3);
@@ -5792,16 +5913,21 @@ const PADDLE_LOW_GRIP = new THREE.Vector3(0, -0.42, 0);
 // A hull that narrows to a point at each end, with the gunwales sweeping up at bow and stern
 const CANOE_LENGTH = 4.6;
 const canoeBeam = z => 0.42 * Math.pow(Math.sin(Math.PI * (z / CANOE_LENGTH + 0.5)), 0.6); // half-width at the gunwale
+// The hull's half-width, gunwale height and keel depth, `t` of the way from stern to bow
+const CANOE_ALONG = 28;
+const canoeSection = t => ({
+  width: canoeBeam((t - 0.5) * CANOE_LENGTH),
+  top: 0.24 + 0.16 * Math.pow(2 * t - 1, 4),
+  bottom: -0.13 * Math.pow(Math.sin(Math.PI * t), 0.4)
+});
 function canoeHullGeometry() {
-  const along = 28;
+  const along = CANOE_ALONG;
   const around = 10;
   const positions = [];
   const index = [];
   for (let i = 0; i <= along; i++) {
     const t = i / along;
-    const width = canoeBeam((t - 0.5) * CANOE_LENGTH);
-    const top = 0.24 + 0.16 * Math.pow(2 * t - 1, 4);
-    const bottom = -0.13 * Math.pow(Math.sin(Math.PI * t), 0.4);
+    const { width, top, bottom } = canoeSection(t);
     for (let j = 0; j <= around; j++) {
       const angle = (j / around) * Math.PI;
       positions.push(width * Math.cos(angle), top - (top - bottom) * Math.sin(angle), (t - 0.5) * CANOE_LENGTH);
@@ -5820,9 +5946,36 @@ function canoeHullGeometry() {
   geometry.computeVertexNormals();
   return geometry;
 }
+// Floorboards laid across the inside of the hull just above the waterline (and the canoe's gentle bob).
+// The lake's surface is one flat sheet that runs straight through the open hull, so without them the
+// canoe looks swamped.
+const CANOE_FLOOR = 0.03;
+function canoeFloorGeometry() {
+  const positions = [];
+  const index = [];
+  for (let i = 0; i <= CANOE_ALONG; i++) {
+    const t = i / CANOE_ALONG;
+    const { width, top, bottom } = canoeSection(t);
+    // Where the hull's curve passes the floor's height, either side
+    const s = clamp((top - CANOE_FLOOR) / Math.max(top - bottom, 1e-3), 0, 1);
+    const half = width * Math.sqrt(1 - s * s);
+    const z = (t - 0.5) * CANOE_LENGTH;
+    positions.push(-half, CANOE_FLOOR, z, half, CANOE_FLOOR, z);
+    if (i > 0) {
+      const a = (i - 1) * 2;
+      index.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(index);
+  geometry.computeVertexNormals();
+  return geometry;
+}
 const canoe = new THREE.Group();
 const canoeWood = new THREE.MeshLambertMaterial({ color: 0x8a6440 });
 canoe.add(new THREE.Mesh(canoeHullGeometry(), new THREE.MeshStandardMaterial({ color: 0xb03a26, flatShading: true, roughness: 0.6, side: THREE.DoubleSide })));
+canoe.add(new THREE.Mesh(canoeFloorGeometry(), new THREE.MeshLambertMaterial({ color: 0x8a6440, side: THREE.DoubleSide })));
 for (const z of [-1.45, 0, 1.2]) {
   const seat = new THREE.Mesh(new THREE.BoxGeometry(canoeBeam(z) * 1.75, 0.03, 0.2), canoeWood);
   seat.position.set(0, 0.12, z);
@@ -6705,8 +6858,14 @@ const BEAR_WALK_SPEED = 1.6;
 const BEAR_FOREST = new THREE.Vector3(48, groundY, -50);
 const BERRY_PATCH = { x: 32, z: -42, radius: 2.5 };
 const BEAR_SCARE_RADIUS = 9; // how close to the camp it comes before the campers take cover
-// Its fishing spot in the middle of the stream, and the trees it comes from
+// Its fishing spot in the middle of the stream, and the trees it comes from. On some days it fishes the
+// pool at the foot of the falls instead, standing in the shallows facing the falls to watch the fish
+// leap, its head following each one up, and now and then swiping at one as it goes past.
 const BEAR_STREAM_T = 0.5;
+const BEAR_FALLS_CHANCE = 0.5;
+const BEAR_FALLS_SPOT = new THREE.Vector3(POOL.x, groundY, POOL.z + 1.2);
+const BEAR_LEAPER_SWIPE = 0.35; // chance it swipes at a fish leaping near it
+const BEAR_LEAPER_CATCH = 0.45; // and that it catches it
 const BEAR_STREAM_WOODS = new THREE.Vector3(-18, groundY, -74);
 const BEAR_WADE_DEPTH = 0.15;
 const BEAR_SWIPE_SECONDS = 0.9;
@@ -6796,7 +6955,10 @@ const bear = makeBear();
 bear.visible = false;
 castShadows(bear);
 scene.add(bear);
-const bearState = { mode: "away", timer: 0, time: 0, route: [], then: "", heading: 0, speed: 0, stride: 0, gait: 0, rear: 0, campVisit: false, visited: false, last: -1, home: BEAR_FOREST, phase: "watch", struck: false };
+const bearState = {
+  mode: "away", timer: 0, time: 0, route: [], then: "", heading: 0, speed: 0, stride: 0, gait: 0, rear: 0, campVisit: false, visited: false, last: -1,
+  home: BEAR_FOREST, phase: "watch", struck: false, atFalls: false, watching: null, leaper: null
+};
 // Where it noses about in the camp: in from the berries round the back of the tent, past the blanket
 // and the chairs to the fire pit, then out again past the front of the camp. It pushes past the
 // chairs but goes round the fire and the tent.
@@ -6819,7 +6981,16 @@ function bearToBush() {
 const bearOut = () => hour >= BEAR_HOURS.out && hour < (bearState.campVisit ? BEAR_HOURS.campHome : BEAR_HOURS.home);
 // A spot in the stream a pace or two up or down from its fishing spot, to try its luck there
 function bearFishingSpot(out) {
+  if (bearState.atFalls) return out.copy(BEAR_FALLS_SPOT).add(offsetDir.set((Math.random() - 0.5) * 1.2, 0, (Math.random() - 0.5) * 0.4));
   return streamCurve.getPointAt(BEAR_STREAM_T + (Math.random() - 0.5) * 0.05, out).setY(groundY);
+}
+const bearAtFalls = () => bearState.atFalls && bearState.mode === "fish" && bear.position.distanceTo(BEAR_FALLS_SPOT) < 2.5;
+// A fish leaping at the falls: if it's watching from the pool, it may take a swipe at it
+function bearEyesLeaper(leaper) {
+  const b = bearState;
+  b.watching = leaper;
+  if (!bearAtFalls() || b.phase !== "watch" || Math.random() > BEAR_LEAPER_SWIPE) return;
+  Object.assign(b, { phase: "swipe", time: 0, struck: false, leaper });
 }
 // The campers take cover while it's in or close to the camp
 const bearNearCamp = () => bear.visible && Math.hypot(bear.position.x - CAMP.x, bear.position.z - CAMP.z) < BEAR_SCARE_RADIUS;
@@ -6833,8 +7004,9 @@ function updateBear(dt, now) {
       b.last = day;
       b.visited = false;
       bear.visible = true;
-      // Out of the trees beyond the meadow, to fish the stream
+      // Out of the trees beyond the meadow, to fish the stream (or, some days, the pool below the falls)
       b.home = BEAR_STREAM_WOODS;
+      b.atFalls = Math.random() < BEAR_FALLS_CHANCE;
       bear.position.copy(b.home);
       bearWalk([bearFishingSpot(new THREE.Vector3())], "fish");
     }
@@ -6880,8 +7052,9 @@ function updateBear(dt, now) {
     rearing = b.reach && b.time > 1.5 && b.time < 4.5 ? 1 : 0;
     if (b.timer <= 0) bearToBush();
   } else if (b.mode === "fish") {
-    // Standing in the stream facing down towards the lake: watching the water, then a swipe or a pounce
-    b.heading = bearing(bear.position, LAKE);
+    // Standing in the stream facing down towards the lake (or in the pool facing the falls): watching the
+    // water, then a swipe or a pounce
+    b.heading = bearAtFalls() ? bearing(bear.position, FALLS) : bearing(bear.position, LAKE);
     const { catchFish } = bear.userData;
     if (b.phase === "watch" && b.timer <= 0) {
       Object.assign(b, { phase: Math.random() < 0.3 ? "pounce" : "swipe", time: 0, struck: false });
@@ -6893,7 +7066,12 @@ function updateBear(dt, now) {
         // Down into the water with a splash, and sometimes up with a fish
         b.struck = true;
         splash(head.getWorldPosition(dripFrom), b.phase === "pounce" ? 0.6 : 0.35);
-        catchFish.visible = Math.random() < (b.phase === "pounce" ? 0.35 : 0.25);
+        if (b.leaper) {
+          // At a fish leaping past: snatched out of the air, or missed
+          catchFish.visible = b.leaper.fish.visible && Math.random() < BEAR_LEAPER_CATCH;
+          if (catchFish.visible) b.leaper.fish.visible = false;
+          b.leaper = null;
+        } else catchFish.visible = Math.random() < (b.phase === "pounce" ? 0.35 : 0.25);
       }
       if (b.time >= seconds) {
         if (catchFish.visible) Object.assign(b, { phase: "eat", timer: 3 + Math.random() * 1.5 });
@@ -6941,8 +7119,19 @@ function updateBear(dt, now) {
   // into the water when fishing, and up to chew a catch
   const fishing = b.mode === "fish" ? (b.phase === "eat" ? -0.15 + Math.max(Math.sin(now * 7), 0) * 0.15 : 0.75 + Math.sin(now * 0.8) * 0.05) : null;
   const nose = fishing !== null ? fishing : b.mode === "feed" ? 0.35 + Math.sin(now * 5) * 0.1 : b.mode === "sniff" ? 0.6 + Math.sin(now * 7) * 0.08 : 0.2;
-  head.rotation.x += (nose - b.rear * 0.6 - head.rotation.x) * easeFactor(dt, 3);
-  head.rotation.y = b.mode === "sniff" ? Math.sin(now * 1.3) * 0.5 : Math.sin(now * 0.7) * 0.15 * b.stride;
+  // At the falls, its eyes follow each fish up as it leaps
+  const leaper = bearAtFalls() && b.phase === "watch" && b.watching && b.watching.fish.visible ? b.watching.fish : null;
+  let lookUp = 0;
+  let lookAcross = 0;
+  if (leaper) {
+    bear.updateMatrixWorld();
+    bear.worldToLocal(leapAhead.copy(leaper.position));
+    lookUp = Math.atan2(leapAhead.y - 1.2, Math.hypot(leapAhead.x, leapAhead.z));
+    lookAcross = clamp(Math.atan2(leapAhead.x, leapAhead.z), -0.7, 0.7);
+  }
+  const noseTarget = leaper ? clamp(-lookUp, -0.9, 0.6) : nose;
+  head.rotation.x += (noseTarget - b.rear * 0.6 - head.rotation.x) * easeFactor(dt, leaper ? 6 : 3);
+  head.rotation.y = b.mode === "sniff" ? Math.sin(now * 1.3) * 0.5 : leaper ? lookAcross : Math.sin(now * 0.7) * 0.15 * b.stride;
 }
 
 // Wolves, heard but never seen: on some nights a pack howls from the hills behind the lake, and the
