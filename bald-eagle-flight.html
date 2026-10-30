@@ -141,6 +141,7 @@ h1 {
   <h1>Bald Eagle Flight</h1>
   <p class="readout"><strong id="readout">9.0</strong> m from camera</p>
   <p class="readout" id="clock">05:36 · Dawn</p>
+  <p class="readout" id="view-name" hidden></p>
   <p class="hint"><span class="hint-mouse">Drag to look around the eagle, scroll to zoom. Double-click to reset, or press R for the front of the lake.</span><span class="hint-touch">Drag to look around the eagle. Double-tap to reset.</span></p>
 </div>
 
@@ -149,6 +150,7 @@ h1 {
     <button type="button" id="btn-follow" class="toggle" aria-pressed="false">Follow eagle<kbd>F</kbd></button>
     <button type="button" id="btn-eye" class="toggle" aria-pressed="false">Eagle’s-eye<kbd>E</kbd></button>
     <button type="button" id="btn-look" class="toggle" aria-pressed="false">Look around<kbd>L</kbd></button>
+    <button type="button" id="btn-cycle" class="toggle" aria-pressed="false">Cycle view<kbd>C</kbd></button>
     <button type="button" id="btn-sound" class="toggle" aria-pressed="false">Sound<kbd>M</kbd></button>
   </div>
   <div class="controls" role="group" aria-label="Distance between the eagle and the camera">
@@ -7856,6 +7858,195 @@ function updateLookAround(dt) {
   lookAround.fov = visitFov() * (1 + 0.3 * lookAround.closeness);
 }
 
+// Cycle view (C): a round of vantage points among the animals and landmarks, skipping any whose subject
+// isn't about just now. It rides at the eye of the eagle, an eaglet, the floatplane, a duck, a dragonfly,
+// the balloon and a vulture, or watches from just above and behind the moose, the heron, the turtles, a
+// frog, the camp, the deer, the beavers, the otters, the bear and the falls. Most keep turning to look
+// out over the lake; the duck and the dragonfly look where they're going, the beavers and otters are
+// followed from behind, and the camp and deer views zoom to keep everyone in frame. After 15 seconds at a
+// view the camera flies on to the next, round and round; each press moves on straight away, and a press
+// after the last goes back to the usual view. If a subject goes (the balloon lands, the bear heads
+// home), it moves on by itself.
+const LAKE_CENTRE = new THREE.Vector3(LAKE.x, LAKE.y, LAKE.z);
+const CYCLE_FOV_LIMITS = [22, 70];
+const CYCLE_PITCH_LIMITS = [-1.25, 0.6];
+const CYCLE_VIEW_SECONDS = 15;
+// Flying between views is an unhurried glide that takes longer the further it goes, arcing up over
+// whatever's in the way
+const CYCLE_FLIGHT = { speed: 12, minSeconds: 4, maxSeconds: 7, arc: 0.25, maxArc: 30 };
+const cycle = {
+  on: false, index: -1, fresh: false, yaw: 0, pitch: 0, fov: CAMERA_FOV, frog: null, timer: 0,
+  flight: { time: 0, seconds: 0, arc: 0, fov: CAMERA_FOV, from: new THREE.Vector3(), facing: new THREE.Quaternion() },
+  // Where the camera last showed a view: flights start from here, since by the time the timer moves
+  // on, the camera has already been placed for the usual view this frame
+  shown: { valid: false, fov: CAMERA_FOV, position: new THREE.Vector3(), facing: new THREE.Quaternion() },
+  facing: new THREE.Quaternion(), turn: new THREE.Matrix4(),
+  dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0,
+  eye: new THREE.Vector3(), target: new THREE.Vector3(), position: new THREE.Vector3(), look: new THREE.Vector3(), direction: new THREE.Vector3()
+};
+const cycleAway = new THREE.Vector3();
+const cycleRight = new THREE.Vector3();
+const cycleUp = new THREE.Vector3();
+const cycleOffset = new THREE.Vector3();
+const firstVisible = list => list.find(object => object.visible);
+function centreOf(objects, out) {
+  out.set(0, 0, 0);
+  for (const object of objects) out.add(object.position);
+  return out.divideScalar(Math.max(objects.length, 1));
+}
+// Riding at an eye (`local`, in the subject's own frame), looking out over the lake, or straight ahead
+// and a little down if `ahead`. Looking off to the side, the camera sits `clear` metres out past the
+// head on the lake side, so the subject's own head doesn't fill the view.
+function eyeView(subject, local, { ahead = false, clear = 0 } = {}) {
+  return () => {
+    const object = subject();
+    object.updateWorldMatrix(true, false);
+    object.localToWorld(cycle.eye.copy(local));
+    if (!ahead) {
+      cycle.target.copy(LAKE_CENTRE);
+      cycleAway.subVectors(cycle.target, cycle.eye).setY(0);
+      if (cycleAway.lengthSq() > 1e-6) cycle.eye.addScaledVector(cycleAway.normalize(), clear);
+      return;
+    }
+    object.getWorldDirection(cycleAway).setY(0);
+    if (cycleAway.lengthSq() < 1e-6) cycleAway.set(0, 0, -1);
+    cycle.target.copy(cycle.eye).addScaledVector(cycleAway.normalize(), 10).y -= 1;
+  };
+}
+// Just above and behind a spot, on its far side from the lake, looking out over it towards the lake:
+// at `lean` of the way from the spot to the lake's middle, or just `past` metres beyond the spot, which
+// tips the view down onto a small subject close by
+function behindView(spot, back, up, { lean = 0.6, past } = {}) {
+  return () => {
+    const at = spot();
+    cycleAway.subVectors(at, LAKE_CENTRE).setY(0);
+    if (cycleAway.lengthSq() < 1e-6) cycleAway.set(0, 0, 1);
+    cycle.eye.copy(at).addScaledVector(cycleAway.normalize(), back).y = at.y + up;
+    keepAboveGround(cycle.eye);
+    if (past === undefined) cycle.target.lerpVectors(at, LAKE_CENTRE, lean);
+    else cycle.target.copy(at).addScaledVector(cycleAway, -past);
+  };
+}
+// Following a swimming group from just above and behind, the way the first of them is heading
+function trailView(group, back, up) {
+  return () => {
+    const swimming = group.filter(animal => animal.visible);
+    const centre = centreOf(swimming, cycleOffset);
+    swimming[0].getWorldDirection(cycleAway).setY(0);
+    if (cycleAway.lengthSq() < 1e-6) cycleAway.set(0, 0, -1);
+    cycleAway.normalize();
+    cycle.eye.copy(centre).addScaledVector(cycleAway, -back).y = centre.y + up;
+    keepAboveGround(cycle.eye);
+    cycle.target.copy(centre).addScaledVector(cycleAway, 3);
+  };
+}
+// The frog being watched, kept while it's on its pad
+function watchedFrog() {
+  if (!cycle.frog || !cycle.frog.visible) cycle.frog = firstVisible(frogs) || null;
+  return cycle.frog;
+}
+const FALLS_TOP = new THREE.Vector3(FALLS.x, groundY + FALLS.height, FALLS.z);
+const TENT_SPOT = new THREE.Vector3(TENT.x, groundY + 1, TENT.z);
+const tentFrame = [TENT_SPOT];
+const herdCentre = new THREE.Vector3();
+// `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view
+const CYCLE_VIEWS = [
+  { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
+  { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
+  { name: "Floatplane’s-eye", ride: true, present: () => planeInSight(), place: eyeView(() => floatplane, new THREE.Vector3(0, 2.3, 1.9), { clear: 0.9 }) }, // at a cabin window, under the wing
+  { name: "Behind the moose", present: () => moose.visible, place: behindView(() => moose.position, 7, 4) },
+  { name: "Behind the heron", present: () => heron.visible, place: behindView(() => heron.position, 5, 3) },
+  { name: "Duck’s-eye", ride: true, present: () => true, place: eyeView(() => ducks[0], new THREE.Vector3(0, 0.24, 0.3), { ahead: true }) },
+  { name: "Behind the turtles", present: () => turtles.some(turtle => turtle.visible), place: behindView(() => turtleLog.position, 4, 2) },
+  { name: "Behind a frog", present: () => frogs.some(frog => frog.visible), place: behindView(() => watchedFrog().position, 1.6, 0.9, { past: 1 }) },
+  { name: "Dragonfly’s-eye", ride: true, present: () => dragonflies.some(fly => fly.visible), place: eyeView(() => firstVisible(dragonflies), new THREE.Vector3(0, 0.012, 0.07), { ahead: true }) },
+  {
+    name: "Behind the camp", present: () => true, place: behindView(() => TENT_SPOT, 6, 4),
+    frame: () => {
+      tentFrame.length = 1;
+      for (const camper of campers) if (camper.visible && camper.userData.state !== "inTent") tentFrame.push(camper.position);
+      return tentFrame;
+    }
+  },
+  { name: "Behind the deer", present: () => true, place: behindView(() => centreOf(herd, herdCentre), 8, 5), frame: () => herd.map(deer => deer.position) },
+  { name: "Behind the beavers", present: () => beavers.some(beaver => beaver.visible), place: trailView(beavers, 4, 2.5) },
+  { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
+  { name: "Behind the bear", present: () => bear.visible, place: behindView(() => bear.position, 7, 4) },
+  // (only once it's up out of the foothill it rises from and sinks back behind)
+  { name: "Balloon’s-eye", ride: true, present: () => balloon.visible && balloon.position.y > 12, place: eyeView(() => balloon, new THREE.Vector3(0, 1.7, 0), { clear: 1.3 }) }, // just over the basket's side, clear of the ropes
+  { name: "Vulture’s-eye", ride: true, present: () => vultures.some(vulture => vulture.visible), place: eyeView(() => firstVisible(vultures), new THREE.Vector3(0, 0.04, 0.36), { clear: 1 }) },
+  { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) }
+];
+// The field of view that just keeps these points in frame, looking along `direction` from `from`
+function fovToFrame(points, from, direction) {
+  cycleRight.crossVectors(direction, WORLD_UP).normalize();
+  cycleUp.crossVectors(cycleRight, direction);
+  let reach = 0;
+  for (const point of points) {
+    cycleOffset.subVectors(point, from);
+    const ahead = cycleOffset.dot(direction);
+    if (ahead < 0.5) continue; // behind the camera, so no zoom will bring it in
+    reach = Math.max(reach, Math.abs(cycleOffset.dot(cycleUp)) / ahead, Math.abs(cycleOffset.dot(cycleRight)) / (ahead * camera.aspect));
+  }
+  return clamp(THREE.MathUtils.radToDeg(2 * Math.atan(reach * 1.3)), ...CYCLE_FOV_LIMITS);
+}
+const viewName = document.getElementById("view-name");
+// Off to a view, flying there from wherever the camera is now
+function showCycleView(index) {
+  Object.assign(cycle, { index, fresh: true, frog: null, timer: CYCLE_VIEW_SECONDS, dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0 });
+  const { flight, shown } = cycle;
+  flight.from.copy(shown.valid ? shown.position : camera.position);
+  flight.facing.copy(shown.valid ? shown.facing : camera.quaternion);
+  flight.fov = shown.valid ? shown.fov : camera.fov / zoom.current;
+  flight.time = 0;
+  viewName.textContent = `Cycle view: ${CYCLE_VIEWS[index].name}`;
+}
+// On to the next view whose subject is about. After the last, a press goes back to the usual view,
+// while the timer (`wrap`) carries on round from the first.
+function nextCycleView(wrap = false) {
+  for (let i = cycle.index + 1; i < CYCLE_VIEWS.length; i++) {
+    if (CYCLE_VIEWS[i].present()) return showCycleView(i);
+  }
+  if (!wrap) return setCycle(false);
+  const first = CYCLE_VIEWS.findIndex(view => view.present());
+  showCycleView(first);
+}
+function updateCycleView(dt) {
+  if (!cycle.on) return;
+  // Each view holds for a while once the camera's got there, then it's on to the next
+  const { flight } = cycle;
+  flight.time += dt;
+  if (flight.time >= flight.seconds) cycle.timer -= dt;
+  if (cycle.timer <= 0 || !CYCLE_VIEWS[cycle.index].present()) nextCycleView(true);
+  const view = CYCLE_VIEWS[cycle.index];
+  view.place();
+  if (cycle.fresh || view.ride) cycle.position.copy(cycle.eye);
+  else cycle.position.lerp(cycle.eye, easeFactor(dt, 3));
+  // Turn smoothly to keep facing the lake (or the way ahead), however the subject twists and turns
+  cycleOffset.subVectors(cycle.target, cycle.position);
+  const yaw = Math.atan2(cycleOffset.x, cycleOffset.z);
+  const pitch = clamp(Math.atan2(cycleOffset.y, Math.hypot(cycleOffset.x, cycleOffset.z)), ...CYCLE_PITCH_LIMITS);
+  if (cycle.fresh) Object.assign(cycle, { yaw, pitch });
+  cycle.yaw += turnTowards(cycle.yaw, yaw) * easeFactor(dt, 2.5);
+  cycle.pitch += (pitch - cycle.pitch) * easeFactor(dt, 2.5);
+  // Any drag turns the head away; resetting turns it back
+  cycle.offsetYaw += (cycle.dragYaw - cycle.offsetYaw) * easeFactor(dt, 4);
+  cycle.offsetPitch += (cycle.dragPitch - cycle.offsetPitch) * easeFactor(dt, 4);
+  const viewYaw = cycle.yaw + cycle.offsetYaw;
+  const viewPitch = clamp(cycle.pitch + cycle.offsetPitch, -1.4, 1.4);
+  cycle.direction.set(Math.sin(viewYaw) * Math.cos(viewPitch), Math.sin(viewPitch), Math.cos(viewYaw) * Math.cos(viewPitch));
+  cycle.look.copy(cycle.position).addScaledVector(cycle.direction, 20);
+  const fov = view.frame ? fovToFrame(view.frame(), cycle.position, cycle.direction) : CAMERA_FOV;
+  cycle.fov = cycle.fresh ? fov : cycle.fov + (fov - cycle.fov) * easeFactor(dt, 1.5);
+  if (cycle.fresh) {
+    const gap = flight.from.distanceTo(cycle.position);
+    flight.seconds = clamp(gap / CYCLE_FLIGHT.speed, CYCLE_FLIGHT.minSeconds, CYCLE_FLIGHT.maxSeconds);
+    flight.arc = Math.min(gap * CYCLE_FLIGHT.arc, CYCLE_FLIGHT.maxArc);
+  }
+  cycle.fresh = false;
+  cycle.facing.setFromRotationMatrix(cycle.turn.lookAt(cycle.position, cycle.look, WORLD_UP));
+}
+
 function updateCamera(dt) {
   // Following: behind the eagle, swung round by any drag
   const behind = Math.atan2(-heading.x, -heading.z);
@@ -7894,8 +8085,25 @@ function updateCamera(dt) {
     camera.position.lerp(lookAround.position, lookAround.weight);
     camera.quaternion.slerp(lookAround.facing, lookAround.weight);
   }
+  // Cycle view: flying to each vantage point in turn, then riding along there
+  updateCycleView(dt);
+  let cycleFov = cycle.fov;
+  if (cycle.on) {
+    const { flight } = cycle;
+    const along = flight.time / Math.max(flight.seconds, 1e-3);
+    const t = smootherstep(along, 0, 1);
+    camera.position.lerpVectors(flight.from, cycle.position, t).y += Math.sin(Math.PI * t) * flight.arc;
+    // The gaze swings round a touch ahead of the glide, so it's settled on the new view as it arrives
+    const turn = smootherstep(along, 0, 0.85);
+    camera.quaternion.copy(flight.facing).slerp(cycle.facing, turn);
+    camera.up.copy(WORLD_UP);
+    cycleFov = lerp(flight.fov, cycle.fov, turn);
+    Object.assign(cycle.shown, { valid: true, fov: cycleFov });
+    cycle.shown.position.copy(camera.position);
+    cycle.shown.facing.copy(camera.quaternion);
+  }
   zoom.current += (zoom.target - zoom.current) * easeFactor(dt, 8);
-  const fov = lerp(CAMERA_FOV, lookAround.fov, lookAround.weight) * zoom.current;
+  const fov = (cycle.on ? cycleFov : lerp(CAMERA_FOV, lookAround.fov, lookAround.weight)) * zoom.current;
   if (fov !== camera.fov) {
     camera.fov = mirrorCamera.fov = fov;
     camera.updateProjectionMatrix();
@@ -7909,7 +8117,8 @@ function updateCamera(dt) {
 const SHADOW_HOME = new THREE.Vector3(0, groundY, -25);
 const shadowFocus = new THREE.Vector3();
 function updateSunShadow() {
-  shadowFocus.lerpVectors(SHADOW_HOME, bird.position, Math.max(followBlend, orbit.blend, eyeBlend)).setY(groundY);
+  if (cycle.on) shadowFocus.copy(camera.position).setY(groundY);
+  else shadowFocus.lerpVectors(SHADOW_HOME, bird.position, Math.max(followBlend, orbit.blend, eyeBlend)).setY(groundY);
   sun.target.position.copy(shadowFocus);
   sun.target.updateMatrixWorld();
   sun.position.copy(shadowFocus).addScaledVector(SUN_DIR, 150);
@@ -7951,14 +8160,20 @@ function setFollow(on) {
   const wasTouring = touring();
   follow = on;
   followButton.setAttribute("aria-pressed", String(on));
-  if (on) setLookAround(false);
+  if (on) {
+    setLookAround(false);
+    setCycle(false);
+  }
   if (on && !wasTouring) joinTour();
 }
 function setEagleEye(on) {
   const wasTouring = touring();
   eagleEye = on;
   eyeButton.setAttribute("aria-pressed", String(on));
-  if (on) setLookAround(false);
+  if (on) {
+    setLookAround(false);
+    setCycle(false);
+  }
   if (on && !wasTouring) joinTour();
 }
 eyeButton.addEventListener("click", () => setEagleEye(!eagleEye));
@@ -7974,9 +8189,32 @@ function setLookAround(on) {
   if (on) {
     setFollow(false);
     setEagleEye(false);
+    setCycle(false);
   }
 }
 lookButton.addEventListener("click", () => setLookAround(!lookAround.on));
+const cycleButton = document.getElementById("btn-cycle");
+function setCycle(on) {
+  if (on === cycle.on) return;
+  cycle.on = on;
+  cycle.shown.valid = false; // the first flight sets off from the usual view
+  cycleButton.setAttribute("aria-pressed", String(on));
+  viewName.hidden = !on;
+  if (on) {
+    setFollow(false);
+    setEagleEye(false);
+    setLookAround(false);
+  }
+}
+// The first press starts at the first view; each one after moves on, and past the last it's back to the usual view
+function cycleView() {
+  if (!cycle.on) {
+    cycle.index = -1;
+    setCycle(true);
+  }
+  nextCycleView();
+}
+cycleButton.addEventListener("click", cycleView);
 // Join the landscape tour at the point nearest the eagle, so it doesn't dash across the map
 function joinTour() {
   const probe = new THREE.Vector3();
@@ -8028,6 +8266,11 @@ canvas.addEventListener("pointermove", e => {
   orbit.y = e.clientY;
   // Looking around, this turns the head; following, it swings the chase camera round; riding
   // along, it looks around
+  if (cycle.on) {
+    cycle.dragYaw -= dx;
+    cycle.dragPitch = clamp(cycle.dragPitch - dy, -1, 1);
+    return;
+  }
   if (lookAround.on) {
     lookAround.dragYaw -= dx;
     lookAround.dragPitch = clamp(lookAround.dragPitch - dy, -1, 1);
@@ -8061,6 +8304,8 @@ function resetView() {
   orbit.followPitch = 0;
   lookAround.dragYaw = 0;
   lookAround.dragPitch = 0;
+  cycle.dragYaw = 0;
+  cycle.dragPitch = 0;
   zoom.target = 1;
 }
 canvas.addEventListener("dblclick", resetView);
@@ -8069,6 +8314,7 @@ function viewFromFront() {
   setFollow(false);
   setEagleEye(false);
   setLookAround(false);
+  setCycle(false);
   resetView();
 }
 // Scrolling up zooms in, down zooms out (a trackpad pinch arrives as a scroll too)
@@ -8086,6 +8332,7 @@ addEventListener("keydown", e => {
   else if (key === "f") setFollow(!follow);
   else if (key === "e") setEagleEye(!eagleEye);
   else if (key === "l") setLookAround(!lookAround.on);
+  else if (key === "c") cycleView();
   else if (key === "m") setSound(!sound.on);
   else if (key === "r") viewFromFront();
 });

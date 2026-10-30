@@ -19,16 +19,39 @@ Open `bald-eagle-flight.html` in a modern browser, either straight from disk or 
 | Drag (mouse or one finger) | Look around the eagle |
 | Mouse wheel (or trackpad pinch) | Zoom in or out |
 | Double-click / double-tap | Reset the view and zoom |
-| `R` | Back to the view from the front of the lake, leaving Follow, Eagle's-eye or Look around |
+| `R` | Back to the view from the front of the lake, leaving Follow, Eagle's-eye, Look around or Cycle view |
 | `1` / `2` / `3` | Camera distance: Close (3.2 m), Away (9 m) or Far away (30 m) |
 | `F` | Follow the eagle on a tour of the whole landscape |
 | `E` | Eagle's-eye view, riding just ahead of the beak |
 | `L` | Look around: leave the eagle and glide slowly round the lake |
+| `C` | Cycle view: tour vantage points among the animals and landmarks, 15 seconds at each; press again to skip ahead |
 | `M` | Sound on or off (off by default) |
 
 In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer and over the beavers' lodge, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) and the otters' rock to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. Once a lap, if the fox or owl is out, the camera leaves the loop to watch it from a little way off, then glides back to where it left off. It rises above the treetops before it travels. For the fox it zooms in close; for the owl it watches the whole circling loop. The nights are short, so the two take turns to go first. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, the mouse wheel zooms, and a double-click puts both back.
 
-The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out.
+Cycle view steps through vantage points, skipping any whose subject isn't about at the time. After 15 seconds at a view the camera glides on to the next one, taking a few seconds over it and arcing up over the landscape on longer hops, and after the last it carries on round from the first. Pressing `C` (or the Cycle view button) moves on straight away:
+
+1. Eagle's-eye
+2. Eaglet's-eye, from the nest
+3. Floatplane's-eye, out of a cabin window under the wing
+4. Behind the moose
+5. Behind the heron
+6. Duck's-eye, low on the water
+7. Behind the turtles on their log
+8. Behind a frog on its lily pad
+9. Dragonfly's-eye
+10. Behind the camp
+11. Behind the deer
+12. Behind the beavers
+13. Behind the otters
+14. Behind the bear
+15. Balloon's-eye, over the side of the basket
+16. Vulture's-eye
+17. Above the falls
+
+The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
+
+The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out. In Cycle view it also names the view.
 
 ## What's in the scene
 
