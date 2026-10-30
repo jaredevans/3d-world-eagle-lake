@@ -865,6 +865,10 @@ for (let i = 0; i < 400; i++) {
 const starGeo = new THREE.BufferGeometry();
 starGeo.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
 const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false }));
+// Everything in the night sky that rides with the camera (the stars, and the shooting stars and
+// satellites among them) sits out beyond the mountain, so the mountain hides whatever passes behind it
+const SKY_DISTANCE = 1000;
+stars.scale.setScalar(SKY_DISTANCE / 550);
 scene.add(stars);
 
 // Shooting stars now and then on clear nights; they ride with the stars (and so with the camera).
@@ -980,7 +984,8 @@ function updateSatellite(dt) {
 // soon gone; in the damp air aloft ahead of rain it lingers, spreading into a broad soft streak, which
 // is why the high cloud brings long ones. They ride with the camera, like the stars, and cross low
 // enough in front of the starting view to be in frame. At dawn and dusk they glow pink.
-const CONTRAIL_RADIUS = 540;
+const CONTRAIL_RADIUS = SKY_DISTANCE; // out beyond the mountain, so it hides any that pass behind it
+const CONTRAIL_WIDTH = CONTRAIL_RADIUS / 540; // (widths below are as seen at 540 m)
 const CONTRAIL_POINTS = 60;
 const CONTRAIL_STEP = 0.025;    // radians of sky between points along a trail
 const CONTRAIL_LIFE = { dry: 6, damp: 45 };     // seconds a trail takes to fade
@@ -1044,7 +1049,7 @@ function updateContrails(dt, now) {
       const age = (k * CONTRAIL_STEP) / jet.rate;
       trailPoint.copy(jet.across).multiplyScalar(Math.sin(angle)).addScaledVector(jet.over, Math.cos(angle));
       trailAlong.copy(jet.across).multiplyScalar(Math.cos(angle)).addScaledVector(jet.over, -Math.sin(angle));
-      trailSide.crossVectors(trailPoint, trailAlong).multiplyScalar((1.2 + spread * age) / 2);
+      trailSide.crossVectors(trailPoint, trailAlong).multiplyScalar(((1.2 + spread * age) / 2) * CONTRAIL_WIDTH);
       const strength = smoothstep(age, 0.3, 1.2) * Math.exp(-age / life) * smoothstep(trailPoint.y, 0, 0.06) * daylight * 0.75;
       trailPoint.multiplyScalar(CONTRAIL_RADIUS);
       positions.setXYZ(k * 3, trailPoint.x + trailSide.x, trailPoint.y + trailSide.y, trailPoint.z + trailSide.z);
@@ -1111,7 +1116,7 @@ const COMET_CHANCE = 0.12;                // each noon, when none is about, the 
 const COMET_NIGHTS = [0.45, 0.8, 1, 0.6]; // how bright it is on each night of its visit
 const COMET_LAG = 1;                      // radians behind the sun along its daily arc
 const COMET_ARC_HEIGHT = 0.32;            // how high that arc rises, kept low so it hangs over the hills
-const COMET_RADIUS = 470;
+const COMET_RADIUS = SKY_DISTANCE; // out beyond the mountain, so it sets behind it
 const COMET_LENGTH = 150;                 // its tails' length across the sky, about 18°
 const COMET_WIDTH = COMET_LENGTH * 0.75;
 const COMET_HEAD_AT = 48 / 512;           // where the head sits along the texture
@@ -1167,6 +1172,7 @@ const cometMesh = new THREE.Mesh(
   new THREE.MeshBasicMaterial({ map: cometTexture(), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide })
 );
 cometMesh.visible = false;
+cometMesh.scale.setScalar(COMET_RADIUS / 470); // (its size is as seen at 470 m)
 scene.add(cometMesh);
 // `visit` counts the nights of a visit (-1 when there's none); `level` is how clearly it shows just now
 const comet = { visit: -1, brightness: 0, level: 0, spottedDay: -1, dir: new THREE.Vector3(), tail: new THREE.Vector3() };
