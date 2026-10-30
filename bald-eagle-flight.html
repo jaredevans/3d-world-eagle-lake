@@ -4146,6 +4146,8 @@ function updateKingfisher(dt, now) {
 // hammers at the wood, and now and then drums, a hollow knocking that carries across the lake, before
 // swooping back down to the foot of the trunk to start again. It keeps clear while the eagle is there.
 const WOODPECKER_SCALE = 1.5;
+const WOODPECKER_LEAN = 0.15;   // radians it leans in towards the trunk while clinging
+const WOODPECKER_HEAD_Z = 0.02; // where its head sits, before it's drawn back or driven in to peck
 const snagRadius = height => 0.35 - 0.25 * (height / 7); // the trunk tapers from 0.35 to 0.1 over 7 m
 const WOODPECKER_SIDE = bearing(SNAG, HOME_POSITION) + 1.2; // round the trunk, side on to the starting view
 const WOODPECKER_ROOST = new THREE.Vector3(SNAG.x - 14, groundY + 8, SNAG.z - 10); // off among the trees
@@ -4161,15 +4163,16 @@ function makeWoodpecker() {
   tail.position.set(0, -0.15, 0.03);
   tail.rotation.x = -0.35;
   const head = new THREE.Group();
-  head.position.set(0, 0.11, 0.02);
+  head.position.set(0, 0.11, WOODPECKER_HEAD_Z);
   const skull = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), black);
-  const crest = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.07, 5), red);
-  crest.position.set(0, 0.035, -0.02);
-  crest.rotation.x = -0.6;
+  // A rounded red crest swept back off the crown (pointed, it read as a beak facing the wrong way)
+  const crest = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), red);
+  crest.scale.set(0.75, 0.8, 1.5);
+  crest.position.set(0, 0.03, -0.02);
   const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.084, 0.012, 0.05), white);
   stripe.position.set(0, -0.012, 0.012);
-  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.009, 0.06, 5).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a5a56, flatShading: true }));
-  bill.position.z = 0.055;
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.07, 5).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x5a5a56, flatShading: true }));
+  bill.position.z = 0.06;
   head.add(skull, crest, stripe, bill);
   // Wings with a white flash, folded flat to the back until it flies
   const wings = [1, -1].map(side => {
@@ -4193,9 +4196,10 @@ castShadows(woodpecker);
 woodpecker.visible = false;
 scene.add(woodpecker);
 const woodpeckerState = { mode: "away", timer: 0, time: 0, height: 1.2, from: new THREE.Vector3(), via: new THREE.Vector3(), to: new THREE.Vector3(), flap: 0, hops: 0 };
-// Clinging to the trunk at a height, facing into it
+// Clinging to the trunk at a height, facing into it, just far enough off it for the tip of its bill to
+// meet the bark (and its tail to brace against it, leaning in a little)
 function trunkSpot(height, out) {
-  return yawVector(WOODPECKER_SIDE, out).multiplyScalar(snagRadius(height) + 0.05 * WOODPECKER_SCALE).add(new THREE.Vector3(SNAG.x, groundY + height, SNAG.z));
+  return yawVector(WOODPECKER_SIDE, out).multiplyScalar(snagRadius(height) + 0.1 * WOODPECKER_SCALE).add(new THREE.Vector3(SNAG.x, groundY + height, SNAG.z));
 }
 function woodpeckerFlight(to, seconds, arc) {
   const w = woodpeckerState;
@@ -4261,9 +4265,12 @@ function updateWoodpecker(dt, now) {
     woodpecker.position.lerp(trunkPoint, easeFactor(dt, 12));
     woodpecker.rotation.y = WOODPECKER_SIDE + Math.PI;
   }
-  woodpecker.rotation.x = clinging ? 0 : 1.2;
-  // Hammering: slow, heavy blows at work, a rapid blur of a drumroll
-  head.rotation.x = pecking ? Math.max(Math.sin(now * (w.mode === "drum" ? 110 : 14)), 0) * (w.mode === "drum" ? 0.3 : 0.6) : 0;
+  woodpecker.rotation.x = clinging ? WOODPECKER_LEAN : 1.2;
+  // Hammering: the head drawn back and driven forward into the bark, in slow, heavy blows at work or a
+  // rapid blur of a drumroll
+  const strike = pecking ? Math.max(Math.sin(now * (w.mode === "drum" ? 110 : 14)), 0) * (w.mode === "drum" ? 0.6 : 1) : 0;
+  head.position.z = WOODPECKER_HEAD_Z - 0.025 + strike * 0.04;
+  head.rotation.x = strike * 0.2;
   // Its wings, flashing white, only show in flight; at rest they're folded into its black back
   w.flap += dt * 30;
   for (const { shoulder, side } of wings) {
@@ -8118,56 +8125,116 @@ function pathGaze(out) {
   return out;
 }
 
-// Visits: once a lap, if the fox or the owl is out, the camera leaves the path to watch it from
-// a little way off, drifting slowly round it, then glides back to where it left off. On the way
-// out it rises before it travels and on the way back it travels before it comes down, so it
+// Visits: a few times a lap the camera leaves the path to watch one of the scene's animals or sights
+// from a little way off, drifting slowly round it, then glides back to where it left off. It can visit
+// any of those in Cycle view (the floatplane and the UFO come to it instead), whichever are about,
+// picking the ones it hasn't watched for longest so that over a few laps it gets round them all. On the
+// way out it rises before it travels and on the way back it travels before it comes down, so it
 // always crosses the land above the treetops.
-const VISIT_HEIGHT = 9;        // metres above the ground while watching
+const VISIT_HEIGHT = 9;        // metres above the ground while watching anything on land
 const VISIT_WATCH_SECONDS = 16;
 const VISIT_MIN_WATCH = 4;     // the shortest stay worth the trip
 const VISIT_LEAVE_SECONDS = 3; // head off this long before the animal turns in for the night or day
 const VISIT_DRIFT = 0.04;      // radians per second it circles the animal while watching
 const VISIT_GLIDE_SPEED = 2.2; // average metres per second on the way there and back
 const VISIT_MAX_SPEED = 3;     // metres per second the watching spot moves, however fast the animal goes
-const VISIT_WAIT_SECONDS = 12; // how long it will hold on for the animal it didn't see last time
+const VISIT_WAIT_SECONDS = 12; // how long it will hold on for the fox or owl when it's nearly out
+const VISITS_PER_LAP = 3;      // spread through the lap, a third of the way round apart
+const VISIT_STAYS_OUT = 120;   // seconds anything without set hours counts as staying out for
+const visitCentre = new THREE.Vector3();
+const visitMid = new THREE.Vector3();
+// Each is watched from `distance` off and `height` above the ground (or a little above it, if it's
+// higher, unless it's up `inSky`), zoomed to `fov`, gazing at `focus`. `anchor` is what the watching spot circles: the animal
+// itself or, for anything that roams too quickly to keep up with, the middle of where it goes. The fox
+// and owl keep set hours, so the camera knows when they'll turn in.
 const watchers = {
   // The fox up close, zoomed right in like a telephoto lens
   fox: {
-    animal: fox, hours: FOX_HOURS, anchor: fox.position, distance: 14, fov: 26,
+    out: () => fox.visible, hours: FOX_HOURS, anchor: () => fox.position, distance: 14, fov: 26,
     focus: out => out.copy(fox.position).setY(groundY + 0.4)
   },
   // The owl roams and circles too quickly to keep up with, so the camera watches its whole loop
   // from just outside it, gazing between the loop's centre and the bird
   owl: {
-    animal: owl, hours: OWL_HOURS, anchor: owlState.centre, distance: OWL_ROUTE.rx + 12, fov: 42,
+    out: () => owl.visible, hours: OWL_HOURS, anchor: () => owlState.centre, distance: OWL_ROUTE.rx + 12, fov: 42,
     focus: out => out.set(owlState.centre.x, owl.position.y, owlState.centre.z).lerp(owl.position, 0.6)
+  },
+  eagle: { out: () => true, anchor: () => bird.position, distance: 22, fov: 40, focus: out => out.copy(bird.position) },
+  eaglets: {
+    out: () => true, anchor: () => visitCentre.set(NEST.x, NEST_RIM_Y, NEST.z), distance: 9, height: NEST.height + 3, fov: 30,
+    focus: out => out.set(NEST.x, NEST_RIM_Y + 0.3, NEST.z)
+  },
+  moose: { out: () => moose.visible, anchor: () => moose.position, distance: 12, fov: 32, focus: out => out.copy(moose.position).setY(moose.position.y + 1.4) },
+  heron: { out: () => heron.visible, anchor: () => heron.position, distance: 9, height: 5, fov: 30, focus: out => out.copy(heron.position).setY(heron.position.y + 0.8) },
+  // Things on the water are watched from close and low over the lake, where there are no trees
+  duck: { out: () => true, anchor: () => ducks[0].position, distance: 7, height: 3.5, fov: 30, focus: out => out.copy(ducks[0].position) },
+  turtles: { out: () => turtles.some(turtle => turtle.visible), anchor: () => turtleLog.position, distance: 8, height: 4, fov: 28, focus: out => out.copy(turtleLog.position) },
+  frog: { out: () => frogs.some(frog => frog.visible), anchor: () => watchedFrog().position, distance: 5, height: 3, fov: 24, focus: out => out.copy(watchedFrog().position) },
+  dragonfly: {
+    out: () => dragonflies.some(fly => fly.visible), anchor: () => firstVisible(dragonflies).position, distance: 5, height: 3, fov: 30,
+    focus: out => out.copy(firstVisible(dragonflies).position)
+  },
+  camp: { out: () => true, anchor: () => TENT_SPOT, distance: 14, fov: 40, focus: out => out.lerpVectors(TENT_SPOT, FIRE_PIT_SPOT, 0.5) },
+  raccoon: { out: () => raccoon.visible, anchor: () => raccoon.position, distance: 8, fov: 30, focus: out => out.copy(raccoon.position) },
+  deer: { out: () => true, anchor: () => centreOf(herd, visitCentre), distance: 18, fov: 40, focus: out => centreOf(herd, out).setY(groundY + 0.8) },
+  comet: {
+    out: () => comet.level > 0.3, anchor: () => COMET_WATCH, distance: 0, height: 3.5, inSky: true, fov: CAMERA_FOV,
+    focus: out => out.copy(comet.dir).multiplyScalar(100).add(COMET_WATCH).setY(COMET_WATCH.y + comet.dir.y * 100 - COMET_AIM_DROP)
+  },
+  beavers: {
+    out: () => beavers.some(beaver => beaver.visible), anchor: () => centreOf(visibleOf(beavers), visitCentre), distance: 10, height: 5, fov: 32,
+    focus: out => centreOf(visibleOf(beavers), out)
+  },
+  otters: {
+    out: () => otters.some(otter => otter.visible), anchor: () => centreOf(visibleOf(otters), visitCentre), distance: 10, height: 5, fov: 32,
+    focus: out => centreOf(visibleOf(otters), out)
+  },
+  bear: { out: () => bear.visible, anchor: () => bear.position, distance: 14, fov: 32, focus: out => out.copy(bear.position).setY(bear.position.y + 0.8) },
+  balloon: {
+    out: () => balloon.visible && balloon.position.y > 12, anchor: () => balloon.position, distance: 40, fov: 40, maxSpeed: 12,
+    focus: out => out.copy(balloonSight)
+  },
+  vultures: {
+    out: () => vultures.some(vulture => vulture.visible), anchor: () => visitCentre.copy(kettle.centre).setY(kettle.centre.y + kettle.lift), distance: 40, fov: 40,
+    focus: out => out.copy(firstVisible(vultures).position)
+  },
+  osprey: { out: () => osprey.visible, anchor: () => LAKE_CENTRE, distance: 22, fov: 40, focus: out => out.copy(osprey.position) },
+  hawk: { out: () => hawk.visible, anchor: () => hawkState.centre, distance: 20, fov: 38, focus: out => out.copy(hawk.position) },
+  falls: {
+    out: () => true, anchor: () => visitCentre.set(POOL.x, groundY, POOL.z), distance: 16, height: 10, fov: 36,
+    focus: out => out.set(FALLS.x, groundY + FALLS.height * 0.5, FALLS.z)
   }
 };
+const visibleOf = list => list.filter(item => item.visible);
+const FIRE_PIT_SPOT = new THREE.Vector3(FIRE_PIT.x, groundY + 0.5, FIRE_PIT.z);
 for (const watcher of Object.values(watchers)) {
-  Object.assign(watcher, { bearing: 0, visited: false, view: new THREE.Vector3(), target: new THREE.Vector3() });
+  Object.assign(watcher, { bearing: 0, visited: false, seenAt: -Infinity, view: new THREE.Vector3(), target: new THREE.Vector3() });
 }
 // A leg goes from the path or a watching spot (`from`) to another (`to`); watching, both are the animal
-const visit = { mode: "none", from: "path", to: "path", progress: 0, time: 0, rising: false, last: null };
+const visit = { mode: "none", from: "path", to: "path", progress: 0, time: 0, rising: false, lapVisits: 0 };
 const visitFocus = new THREE.Vector3();
 const visitStep = new THREE.Vector3();
-const secondsOut = watcher => (watcher.animal.visible ? secondsUntil(watcher.hours.home) : 0);
+const secondsOut = watcher => (!watcher.out() ? 0 : watcher.hours ? secondsUntil(watcher.hours.home) : VISIT_STAYS_OUT);
 const legEnd = key => (key === "path" ? pathPosition : watchers[key].view);
 const glideSeconds = (from, to) => clamp(from.distanceTo(to) / VISIT_GLIDE_SPEED, 6, 16);
-// The spot to watch from, on the `bearing` side of the animal (or its loop) and high enough to
-// clear the trees
-function watchPoint({ animal, anchor, bearing, distance }, out) {
-  const y = Math.max(groundY + VISIT_HEIGHT, animal.position.y + 1.5);
+// The spot to watch from, on the `bearing` side of the subject (or its round) and high enough to clear
+// the trees, or whatever it's watching
+function watchPoint(watcher, out) {
+  const { bearing, distance } = watcher;
+  const anchor = watcher.anchor();
+  const ground = groundY + (watcher.height ?? VISIT_HEIGHT);
+  const y = watcher.inSky ? ground : Math.max(ground, watcher.focus(visitMid).y + 1.5);
   out.set(anchor.x + Math.sin(bearing) * distance, y, anchor.z + Math.cos(bearing) * distance);
   // The nest pine stands taller than the watching height
   keepOutOfCircle(out, NEST_PINE_CLEARANCE);
   return out;
 }
 const NEST_PINE_CLEARANCE = { x: NEST.x, z: NEST.z, radius: 5 };
-// Whether an animal is out, not yet seen this lap and staying out long enough to be worth the
-// trip; if so, its watching spot is lined up on the side the camera would come from
+// Whether something is about, not yet seen this lap and staying long enough to be worth the trip; if
+// so, its watching spot is lined up on the side the camera would come from
 function worthVisiting(watcher) {
-  if (watcher.visited || !watcher.animal.visible) return false;
-  const { anchor } = watcher;
+  if (watcher.visited || !watcher.out()) return false;
+  const anchor = watcher.anchor();
   watcher.bearing = Math.atan2(lookAround.position.x - anchor.x, lookAround.position.z - anchor.z);
   const seconds = glideSeconds(lookAround.position, watchPoint(watcher, watcher.target));
   return secondsOut(watcher) >= seconds + VISIT_MIN_WATCH + VISIT_LEAVE_SECONDS;
@@ -8175,18 +8242,22 @@ function worthVisiting(watcher) {
 function startLeg(from, to) {
   Object.assign(visit, { mode: "glide", from, to, progress: 0, rising: legEnd(to).y > legEnd(from).y });
 }
-// Off to the next animal worth watching, or else back to the path. The nights are short, so the
-// fox and owl take turns to come first: the one not seen last time, then whichever turns in
-// soonest. In the evening the camera holds on for the owl if it's its turn and it's nearly out.
+// Off to the next thing worth watching, or else back to the path. Leaving the path, it's the one it
+// hasn't watched for longest (and, between those it hasn't watched yet, whichever leaves soonest), and
+// only a few times a lap, spread out round it. From one of them it only goes straight on to another if
+// that's the fox or the owl, as the nights are short; in the evening it holds on for whichever of them
+// is next if it's nearly out.
 function nextLeg() {
   const from = visit.mode === "none" ? "path" : visit.to;
-  const order = Object.entries(watchers).sort(([, a], [, b]) => (a === visit.last) - (b === visit.last) || secondsOut(a) - secondsOut(b));
+  if (from === "path" && (visit.lapVisits >= VISITS_PER_LAP || lookAround.u < visit.lapVisits / VISITS_PER_LAP)) return;
+  const order = Object.entries(watchers).sort(([, a], [, b]) => a.seenAt - b.seenAt || secondsOut(a) - secondsOut(b));
   const [, turn] = order[0];
-  if (from === "path" && !turn.visited && !turn.animal.visible && secondsUntil(turn.hours.out) < VISIT_WAIT_SECONDS) return;
+  if (from === "path" && turn.hours && !turn.visited && !turn.out() && secondsUntil(turn.hours.out) < VISIT_WAIT_SECONDS) return;
   for (const [key, watcher] of order) {
-    if (!worthVisiting(watcher)) continue;
-    watcher.visited = true;
-    visit.last = watcher;
+    if (from !== "path" && !watcher.hours) continue;
+    if (visit.lapVisits >= VISITS_PER_LAP || !worthVisiting(watcher)) continue;
+    Object.assign(watcher, { visited: true, seenAt: elapsed });
+    visit.lapVisits++;
     watcher.view.copy(watcher.target);
     return startLeg(from, key);
   }
@@ -8197,7 +8268,8 @@ function trackWatcher(key, dt) {
   const watcher = watchers[key];
   if (visit.mode === "watch") watcher.bearing += VISIT_DRIFT * dt;
   visitStep.subVectors(watchPoint(watcher, watcher.target), watcher.view).multiplyScalar(easeFactor(dt, 0.5));
-  if (visitStep.length() > VISIT_MAX_SPEED * dt) visitStep.setLength(VISIT_MAX_SPEED * dt);
+  const maxStep = (watcher.maxSpeed ?? VISIT_MAX_SPEED) * dt;
+  if (visitStep.length() > maxStep) visitStep.setLength(maxStep);
   watcher.view.add(visitStep);
 }
 // How much of its own pace the path keeps: it eases to a stop as the camera leaves it and picks
@@ -8280,8 +8352,11 @@ function updateLookAround(dt) {
     * lookAround.weight * pathPace() * (1 - 0.6 * lookAround.planeWatch);
   const lastU = lookAround.u;
   lookAround.u = (lookAround.u + (pace * dt) / LOOK_AROUND_LENGTH) % 1;
-  // A new lap: the fox and owl can be visited again
-  if (lookAround.u < lastU) for (const watcher of Object.values(watchers)) watcher.visited = false;
+  // A new lap: everything can be visited again
+  if (lookAround.u < lastU) {
+    for (const watcher of Object.values(watchers)) watcher.visited = false;
+    visit.lapVisits = 0;
+  }
   lookAroundPath.getPointAt(lookAround.u, pathPosition);
 
   // Lean gently into the curves, like a bird riding the air
@@ -8828,7 +8903,7 @@ eyeButton.addEventListener("click", () => setEagleEye(!eagleEye));
 function setLookAround(on) {
   if (on && lookAround.progress === 0) {
     Object.assign(lookAround, { u: 0, fresh: true, bank: 0, dragYaw: 0, dragPitch: 0, offsetYaw: 0, offsetPitch: 0 });
-    Object.assign(visit, { mode: "none", last: null });
+    Object.assign(visit, { mode: "none", lapVisits: 0 });
     for (const watcher of Object.values(watchers)) watcher.visited = false;
   }
   lookAround.on = on;
