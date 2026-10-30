@@ -26,6 +26,7 @@ Open `bald-eagle-flight.html` in a modern browser, either straight from disk or 
 | `L` | Look around: leave the eagle and glide slowly round the lake |
 | `C` | Cycle view: tour vantage points among the animals and landmarks, 15 seconds at each; press again to skip ahead |
 | `M` | Sound on or off (off by default) |
+| `I` (or the round button by the title) | Fold the card in the top-left corner down to just its title, or open it out again; it stays as you left it next time |
 
 Follow, Eagle's-eye, Look around and Cycle view are one at a time: turning one on turns the others off.
 
@@ -62,7 +63,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 
 The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane and the owl are chased from just above and behind, the way they're heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane, the balloon and the UFO take priority: when one turns up, the camera drops what it's watching and flies straight to it, dashing over to the balloon or the UFO in a couple of seconds so as not to miss them. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached one of them in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
-The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather, and when the northern lights, a comet or a UFO are out. In Cycle view it also names the view.
+The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather, and when the northern lights, a comet or a UFO are out. In Cycle view it also names the view. The round button beside the title (or `I`) folds it away to just the title when you'd rather see more of the scene.
 
 ## What's in the scene
 

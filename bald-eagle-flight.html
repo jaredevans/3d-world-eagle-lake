@@ -52,6 +52,29 @@ body {
   -webkit-backdrop-filter: blur(10px);
   max-width: calc(100% - 32px);
 }
+/* Collapsible down to just the title, with a round button beside it */
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.card-toggle {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--glass-edge);
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--ink);
+  cursor: pointer;
+}
+.card-toggle:hover { background: #fff; }
+.card-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.card-toggle svg { width: 14px; height: 14px; transition: transform 0.2s ease; }
+.card.collapsed { padding: 8px 10px 8px 16px; }
+.card.collapsed > :not(.card-head) { display: none; }
+.card.collapsed h1 { font-size: 20px; }
+.card.collapsed .card-toggle svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .card-toggle svg { transition: none; } }
 .eyebrow {
   margin: 0;
   font-size: 11px;
@@ -136,9 +159,14 @@ h1 {
 
 <canvas id="scene" aria-label="An American bald eagle over a lake through a looping day: it snatches fish and eats them on a dead tree or carries them to its nest in a tall pine, where its mate stands guard over two begging eaglets, and now and then it chases an osprey until it drops its catch. A waterfall pours off a rocky bluff into a stream that winds down to the lake, where beavers tow branches to their lodge at dusk and slap their tails in alarm. Deer graze, a fox and a heron hunt, ducks paddle, otters porpoise and haul out on a rock, turtles bask on a log, a kingfisher dives from its perch, a loon dives with its chick on its back and takes off on a long splashing run, a bull moose wades in at dawn to dunk for water plants, a black bear eats berries behind the camp, a woodpecker drums on the dead tree, a hummingbird zips about the camp, frogs croak on the lily pads, water lilies open by day and butterflies and dragonflies flit about. Two campers by their tent point up as the eagle passes overhead, fish from the shore at dawn, paddle a canoe round the lake on calm mornings, shelter from the rain, toast marshmallows round the fire at dusk and lie out under the northern lights, and hurry into the tent when the bear wanders into camp; on some nights a raccoon raids their cooler while they sleep. Some afternoons a floatplane lands on the lake in a burst of spray and takes off again, and on calm mornings a hot-air balloon drifts across the valley, its burner flaring. A great snow-capped mountain rises beyond the foothills, its snow glistening in the sun and flushing pink at dawn and dusk. On fine days turkey vultures circle up on rising warm air, a red-tailed hawk circles screaming over the meadow, and airliners draw contrails across the sky that linger when rain is on the way, after high cloud brings a halo and sundogs round the sun. A spider's web glitters with dew at dawn and a small rainbow hangs in the waterfall's spray. Bats and an owl come out at night, wolves howl in the distance, satellites and shooting stars (some nights a meteor shower) cross the sky, now and then a comet hangs low in the west for a few nights, on rare nights a UFO hovers over the lake with flashing red and green lights, sweeps a spotlight across the water and beams one of the campers up out of the tent, the moon lays a glittering path across the water and the weather turns from sunshine to thunderstorms"></canvas>
 
-<div class="card">
+<div class="card" id="card">
   <p class="eyebrow">American bald eagle · <i>Haliaeetus leucocephalus</i></p>
-  <h1>Bald Eagle Flight</h1>
+  <div class="card-head">
+    <h1>Bald Eagle Flight</h1>
+    <button type="button" class="card-toggle" id="card-toggle" aria-expanded="true" aria-controls="card" aria-label="Collapse the card (I)" title="Collapse the card (I)">
+      <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 9l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
   <p class="readout"><strong id="readout">9.0</strong> m from camera</p>
   <p class="readout" id="clock">05:36 · Dawn</p>
   <p class="readout" id="view-name" hidden></p>
@@ -9682,6 +9710,20 @@ canvas.addEventListener("wheel", e => {
   zoom.target = clamp(zoom.target * Math.exp(pixels * ZOOM_PER_PIXEL), ...ZOOM_LIMITS);
 }, { passive: false });
 
+// The card folds away to just its title, and stays that way next time
+const card = document.getElementById("card");
+const cardToggle = document.getElementById("card-toggle");
+function setCardCollapsed(collapsed) {
+  card.classList.toggle("collapsed", collapsed);
+  cardToggle.setAttribute("aria-expanded", String(!collapsed));
+  const label = collapsed ? "Expand the card (I)" : "Collapse the card (I)";
+  cardToggle.setAttribute("aria-label", label);
+  cardToggle.title = label;
+  try { localStorage.setItem("cardCollapsed", collapsed ? "1" : "0"); } catch {}
+}
+try { if (localStorage.getItem("cardCollapsed") === "1") setCardCollapsed(true); } catch {}
+cardToggle.addEventListener("click", () => setCardCollapsed(!card.classList.contains("collapsed")));
+
 addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const key = e.key.toLowerCase();
@@ -9694,6 +9736,7 @@ addEventListener("keydown", e => {
   else if (key === "u") summonUfo(); // (a secret)
   else if (key === "m") setSound(!sound.on);
   else if (key === "r") viewFromFront();
+  else if (key === "i") setCardCollapsed(!card.classList.contains("collapsed"));
 });
 
 function resize() {
