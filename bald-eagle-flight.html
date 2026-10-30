@@ -7859,15 +7859,15 @@ function updateLookAround(dt) {
 }
 
 // Cycle view (C): a round of vantage points among the animals and landmarks, skipping any whose subject
-// isn't about just now. It rides at the eye of the eagle, an eaglet, a duck, a dragonfly, the balloon and
-// a vulture, chases the floatplane, or watches from just above and behind the moose, the heron, the
-// turtles, a frog, the camp, the raccoon, the deer, the fox, the beavers, the otters, the bear (or from
-// its side as it fishes), the osprey, the red-tailed hawk and the falls. Most keep turning
-// to look out over the lake; the duck and the dragonfly look where they're going, the floatplane, beavers
-// and otters are followed from behind, and the camp and deer views zoom to keep everyone in frame. After 15 seconds at a
-// view the camera flies on to the next, round and round; each press moves on straight away, and a press
-// after the last goes back to the usual view. If a subject goes (the balloon lands, the bear heads
-// home), it moves on by itself.
+// isn't about just now. It rides at the eye of the eagle, an eaglet, a duck, a dragonfly, the balloon
+// and a vulture, chases the floatplane and the owl, or watches from just above and behind the moose,
+// the heron, the turtles, a frog, the camp, the raccoon, the deer, the fox, the beavers, the otters,
+// the bear (or from its side as it fishes), the osprey, the red-tailed hawk and the falls. Most keep
+// turning to look out over the lake; the duck and the dragonfly look where they're going, the
+// floatplane, owl, beavers and otters are followed from behind, and the camp and deer views zoom to
+// keep everyone in frame. After 15 seconds at a view the camera flies on to the next, round and round;
+// each press moves on straight away, and a press after the last goes back to the usual view. If a
+// subject goes (the balloon lands, the bear heads home), it moves on by itself.
 const LAKE_CENTRE = new THREE.Vector3(LAKE.x, LAKE.y, LAKE.z);
 const CYCLE_FOV_LIMITS = [22, 70];
 const CYCLE_PITCH_LIMITS = [-1.25, 0.6];
@@ -8012,6 +8012,7 @@ const CYCLE_VIEWS = [
   { name: "Behind the raccoon", present: () => raccoon.visible, place: behindView(() => raccoon.position, 3, 2, { past: 3 }) },
   { name: "Behind the deer", present: () => true, place: behindView(() => centreOf(herd, herdCentre), 8, 5), frame: () => herd.map(deer => deer.position) },
   { name: "Behind the fox", present: () => fox.visible, place: behindView(() => fox.position, 5, 2.5, { past: 5 }) },
+  { name: "Behind the owl", present: () => owl.visible, place: chaseView(() => owl, 5, 2, 6) },
   { name: "Behind the beavers", present: () => beavers.some(beaver => beaver.visible), place: trailView(beavers, 4, 2.5) },
   { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
   { name: "The bear", present: () => bear.visible, place: bearView },
