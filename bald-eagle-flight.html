@@ -7980,6 +7980,8 @@ const CYCLE_VIEW_SECONDS = 15;
 // Flying between views is an unhurried glide that takes longer the further it goes, arcing up over
 // whatever's in the way
 const CYCLE_FLIGHT = { speed: 12, minSeconds: 4, maxSeconds: 7, arc: 0.25, maxArc: 30 };
+// ...or a quick dash, for something that won't wait (the balloon's climb is soon over)
+const CYCLE_DASH = { speed: 50, minSeconds: 1.5, maxSeconds: 2.5, arc: 0.15, maxArc: 20 };
 const cycle = {
   on: false, index: -1, fresh: false, yaw: 0, pitch: 0, fov: CAMERA_FOV, frog: null, timer: 0,
   resumeAfter: null, // the view a priority subject broke into, which the round picks up from afterwards
@@ -8105,7 +8107,8 @@ const tentFrame = [TENT_SPOT];
 const herdCentre = new THREE.Vector3();
 // `ride`: fixed to its subject rather than gliding after it; `frame`: the things to zoom out to keep in view;
 // `priority`: flown to straight away when its subject turns up; `find`: a subject quick enough to slip out
-// of sight on the way in, which the gaze picks up early in the flight and keeps on until it arrives
+// of sight on the way in, which the gaze picks up early in the flight and keeps on until it arrives;
+// `dash`: flown to quickly
 const CYCLE_VIEWS = [
   { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
   { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
@@ -8132,7 +8135,7 @@ const CYCLE_VIEWS = [
   { name: "Behind the otters", present: () => otters.some(otter => otter.visible), place: trailView(otters, 4, 2.5) },
   { name: "The bear", present: () => bear.visible, place: bearView },
   // (only once it's up out of the foothill it rises from and sinks back behind)
-  { name: "Behind the balloon", ride: true, priority: true, present: () => balloon.visible && balloon.position.y > 12, place: balloonView },
+  { name: "Behind the balloon", ride: true, priority: true, present: () => balloon.visible && balloon.position.y > 12, place: balloonView, dash: true, find: () => cycle.target }, // (its framing's own aim, so there's no swing at the end)
   { name: "Vulture’s-eye", ride: true, present: () => vultures.some(vulture => vulture.visible), place: eyeView(() => firstVisible(vultures), new THREE.Vector3(0, 0.04, 0.36), { clear: 1 }) },
   { name: "Behind the osprey", present: () => osprey.visible, place: behindView(() => osprey.position, 8, 3) },
   { name: "Behind the red-tailed hawk", present: () => hawk.visible, place: behindView(() => hawk.position, 9, 3) },
@@ -8228,8 +8231,9 @@ function updateCycleView(dt) {
     flight.start.copy(cycle.position);
     flight.gap.subVectors(flight.from, cycle.position);
     const gap = flight.gap.length();
-    flight.seconds = clamp(gap / CYCLE_FLIGHT.speed, CYCLE_FLIGHT.minSeconds, CYCLE_FLIGHT.maxSeconds);
-    flight.arc = Math.min(gap * CYCLE_FLIGHT.arc, CYCLE_FLIGHT.maxArc);
+    const pace = view.dash ? CYCLE_DASH : CYCLE_FLIGHT;
+    flight.seconds = clamp(gap / pace.speed, pace.minSeconds, pace.maxSeconds);
+    flight.arc = Math.min(gap * pace.arc, pace.maxArc);
   }
   cycle.fresh = false;
   cycle.facing.setFromRotationMatrix(cycle.turn.lookAt(cycle.position, cycle.look, WORLD_UP));
@@ -8294,7 +8298,9 @@ function updateCamera(dt) {
       // into the view's own framing at the end, aimed from where the camera actually is
       findFacing.setFromRotationMatrix(findTurn.lookAt(camera.position, find(), WORLD_UP));
       framingFacing.setFromRotationMatrix(findTurn.lookAt(camera.position, cycle.look, WORLD_UP));
-      camera.quaternion.copy(flight.facing).slerp(findFacing, smootherstep(along, 0, 0.3)).slerp(framingFacing, smootherstep(along, 0.7, 1));
+      // (spread over more of a short dash, so the camera swings round rather than whipping)
+      const findBy = CYCLE_VIEWS[cycle.index].dash ? 0.6 : 0.3;
+      camera.quaternion.copy(flight.facing).slerp(findFacing, smootherstep(along, 0, findBy)).slerp(framingFacing, smootherstep(along, 0.7, 1));
     } else camera.quaternion.copy(flight.facing).slerp(cycle.facing, turn);
     camera.up.copy(WORLD_UP);
     cycleFov = lerp(flight.fov, cycle.fov, turn);
