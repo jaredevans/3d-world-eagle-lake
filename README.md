@@ -44,7 +44,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 11. Behind the deer
 12. Behind the beavers
 13. Behind the otters
-14. Behind the bear
+14. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
 15. Balloon's-eye, over the side of the basket
 16. Vulture's-eye
 17. Above the falls
