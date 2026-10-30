@@ -41,15 +41,19 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 8. Behind a frog on its lily pad
 9. Dragonfly's-eye
 10. Behind the camp
-11. Behind the deer
-12. Behind the beavers
-13. Behind the otters
-14. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
-15. Balloon's-eye, over the side of the basket
-16. Vulture's-eye
-17. Above the falls
+11. Behind the raccoon
+12. Behind the deer
+13. Behind the fox
+14. Behind the beavers
+15. Behind the otters
+16. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
+17. Balloon's-eye, over the side of the basket
+18. Vulture's-eye
+19. Behind the osprey
+20. Behind the red-tailed hawk
+21. Above the falls
 
-The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going, the floatplane is chased from just above and behind, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane and the balloon take priority: when either turns up, the camera drops what it's watching and flies straight to it. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached the floatplane or balloon in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
+The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane is chased from just above and behind, the way it's heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane and the balloon take priority: when either turns up, the camera drops what it's watching and flies straight to it. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached the floatplane or balloon in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
 The card in the top-left corner shows how far the eagle is from the camera, the time of day, the weather and when the northern lights are out. In Cycle view it also names the view.
 
