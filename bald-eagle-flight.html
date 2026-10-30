@@ -5620,6 +5620,12 @@ function planUfo() {
   ufoState.hour = lerp(UFO_HOURS.from, UFO_HOURS.to, Math.random()) % 24;
 }
 const ufoAbout = () => ufoState.mode !== "away";
+// Called in at any hour with the hidden U key
+function summonUfo() {
+  if (ufoAbout()) return;
+  Object.assign(ufoState, { mode: "arrive", time: 0, spot: 0, leave: 0 });
+  ufo.visible = true;
+}
 const ufoAtCamp = () => ufoState.mode === "toCamp" || ufoState.mode === "abduct";
 const ufoTaking = new THREE.Vector3();
 // One of the campers, picked out at random, floating up the beam from wherever they are (up through
@@ -5646,8 +5652,8 @@ const ufoToSpot = new THREE.Vector3();
 const ufoUnder = new THREE.Vector3();
 function updateUfo(dt, now, lastHour) {
   const u = ufoState;
-  // Whoever was taken is back in the tent by sunrise, and up and about as usual
-  if (u.taken && u.taken.userData.abducted === "gone" && hour >= SUNRISE && hour < 12) {
+  // Whoever was taken is back in the tent by the next sunrise, and up and about as usual
+  if (u.taken && u.taken.userData.abducted === "gone" && lastHour < SUNRISE && hour >= SUNRISE) {
     u.taken.userData.abducted = null;
     u.taken = null;
   }
@@ -8518,6 +8524,41 @@ const CYCLE_VIEWS = [
   { name: "Behind the red-tailed hawk", present: () => hawk.visible, place: behindView(() => hawk.position, 9, 3) },
   { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) }
 ];
+// The UFO is too good to miss: whatever the camera's doing, it dashes over to the UFO's view (as Cycle
+// view does) and stays for the whole visit, then goes back to what it was doing. A press of C hands over
+// to Cycle view proper; F, E, L or R to that mode.
+const UFO_VIEW = CYCLE_VIEWS.findIndex(view => view.name === "The UFO");
+// `waved off`: the camera was taken elsewhere during this visit, so it's left there until the next
+const ufoWatch = { active: false, wavedOff: false };
+function updateUfoWatch() {
+  const view = CYCLE_VIEWS[UFO_VIEW];
+  if (!view.present()) ufoWatch.wavedOff = false;
+  if (ufoWatch.active) {
+    if (!cycle.on) Object.assign(ufoWatch, { active: false, wavedOff: true }); // handed over to another mode
+    else if (cycle.index !== UFO_VIEW) {
+      // Moved on with C: carry on in Cycle view
+      Object.assign(ufoWatch, { active: false, wavedOff: true });
+      cycleButton.setAttribute("aria-pressed", "true");
+      setFollow(false);
+      setEagleEye(false);
+      setLookAround(false);
+    } else if (!view.present()) {
+      // Gone: back to whatever the camera was doing
+      ufoWatch.active = false;
+      cycle.on = false;
+      viewName.hidden = true;
+    }
+    return;
+  }
+  if (cycle.on || !view.present() || ufoWatch.wavedOff) return;
+  ufoWatch.active = true;
+  cycle.on = true;
+  cycle.shown.valid = false; // fly from wherever the camera is now
+  cycle.resumeAfter = null;
+  showCycleView(UFO_VIEW);
+  viewName.textContent = "Watching the UFO";
+  viewName.hidden = false;
+}
 // The field of view that just keeps these points in frame, looking along `direction` from `from`
 function fovToFrame(points, from, direction) {
   cycleRight.crossVectors(direction, WORLD_UP).normalize();
@@ -8657,7 +8698,8 @@ function updateCamera(dt) {
     camera.position.lerp(lookAround.position, lookAround.weight);
     camera.quaternion.slerp(lookAround.facing, lookAround.weight);
   }
-  // Cycle view: flying to each vantage point in turn, then riding along there
+  // Cycle view: flying to each vantage point in turn, then riding along there (or to the UFO, in any mode)
+  updateUfoWatch();
   updateCycleView(dt);
   let cycleFov = cycle.fov;
   if (cycle.on) {
@@ -8739,11 +8781,13 @@ buttons.forEach(b => b.addEventListener("click", () => setDistance(b.dataset.dis
 const followButton = document.getElementById("btn-follow");
 const eyeButton = document.getElementById("btn-eye");
 const lookButton = document.getElementById("btn-look");
+// Only one way of looking at a time: turning on Follow, Eagle's-eye, Look around or Cycle view turns the others off
 function setFollow(on) {
   const wasTouring = touring();
   follow = on;
   followButton.setAttribute("aria-pressed", String(on));
   if (on) {
+    setEagleEye(false);
     setLookAround(false);
     setCycle(false);
   }
@@ -8754,6 +8798,7 @@ function setEagleEye(on) {
   eagleEye = on;
   eyeButton.setAttribute("aria-pressed", String(on));
   if (on) {
+    setFollow(false);
     setLookAround(false);
     setCycle(false);
   }
@@ -8919,6 +8964,7 @@ addEventListener("keydown", e => {
   else if (key === "e") setEagleEye(!eagleEye);
   else if (key === "l") setLookAround(!lookAround.on);
   else if (key === "c") cycleView();
+  else if (key === "u") summonUfo(); // (a secret)
   else if (key === "m") setSound(!sound.on);
   else if (key === "r") viewFromFront();
 });
