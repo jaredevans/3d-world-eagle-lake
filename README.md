@@ -4,7 +4,7 @@ An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over
 
 **[Try it live in your browser](https://jaredevans.github.io/3d-world-eagle-lake/)**
 
-[![The eagle skimming low over the misty lake in the early morning in front of the waterfall and its stream, with the nest pine, the beavers' lodge and a feeding moose on the left, ducks, an otter and a heron on the water, a dewy spider's web and the turtles' log in front, and on the right-hand shore the campers by their tent, where he's casting from the water's edge](docs/screenshot.png)](https://jaredevans.github.io/3d-world-eagle-lake/docs/3d-eagle-lake.mp4)
+[![The eagle flying over the lake on a clear morning, with a hot-air balloon above the snow-capped volcano and its reflection in the water. Behind the lake are the waterfall, the cave mouth and cherry trees at the foot of the foothill, the nest pine, apple trees, sunflowers and deer in the meadow, with the moose and the beavers' lodge on the left, the campers, canoe and station wagon on the right, and in front a heron, ducks, the turtles' log and wildflowers](docs/screenshot.png)](https://jaredevans.github.io/3d-world-eagle-lake/docs/3d-eagle-lake.mp4)
 
 ▶ **[Watch a 6-minute video of the scene](https://jaredevans.github.io/3d-world-eagle-lake/docs/3d-eagle-lake.mp4)** (no sound)
 
