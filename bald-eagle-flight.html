@@ -2500,27 +2500,28 @@ const DEER_SPEED = { walk: DEER_WALK_SPEED, toWater: DEER_WALK_SPEED, flee: DEER
 const DEER_HEAD_DOWN = { graze: 1, drink: 1, walk: 0.3, toWater: 0.3 };
 // The deer are the Forest Deer from Polyfork (https://polyfork.dev/asset/forest-deer-fe648d), a stag, so the does are
 // the same model with its antlers taken off. Each antler is a shell of its own, the only thing that rises this high.
+// (Some models' parts are shells like this without being parts of their own: `seed` picks out a point on each one to go.)
 const DEER_MODEL = "https://polyfork.dev/cdn/forest-deer-fe648d.glb";
 const ANTLERS_ABOVE = 1.8;
-function withoutAntlers(geometry) {
+function withoutShells(geometry, seed) {
   const { position } = geometry.attributes;
   const index = geometry.index.array;
   const spots = Array.from(index, i => `${position.getX(i).toFixed(3)},${position.getY(i).toFixed(3)},${position.getZ(i).toFixed(3)}`);
-  const antler = new Set(spots.filter((spot, i) => position.getY(index[i]) > ANTLERS_ABOVE));
-  // Spread from the tips over every triangle they touch, down to where the antlers meet the head
+  const going = new Set(spots.filter((spot, i) => seed(position, index[i])));
+  // Spread from there over every triangle they touch, to the whole of each shell
   for (let grew = true; grew;) {
     grew = false;
     for (let i = 0; i < spots.length; i += 3) {
       const corners = spots.slice(i, i + 3);
-      if (corners.some(spot => antler.has(spot)) && !corners.every(spot => antler.has(spot))) {
-        corners.forEach(spot => antler.add(spot));
+      if (corners.some(spot => going.has(spot)) && !corners.every(spot => going.has(spot))) {
+        corners.forEach(spot => going.add(spot));
         grew = true;
       }
     }
   }
-  const doe = geometry.clone();
-  doe.setIndex(Array.from(index).filter((_, i) => !antler.has(spots[i - i % 3])));
-  return doe;
+  const left = geometry.clone();
+  left.setIndex(Array.from(index).filter((_, i) => !going.has(spots[i - i % 3])));
+  return left;
 }
 function makeDeer(antlers) {
   const deer = new THREE.Group();
@@ -2540,7 +2541,7 @@ const herd = [[3, -37, 1.2, true], [8, -41, -1.6, false], [12, -36, 1.9, false],
   return deer;
 });
 loadPolyforkModel(DEER_MODEL, "deer", (model, clips) => {
-  const doeGeometry = withoutAntlers(firstMesh(model).geometry);
+  const doeGeometry = withoutShells(firstMesh(model).geometry, (position, i) => position.getY(i) > ANTLERS_ABOVE);
   for (const deer of herd) {
     const body = THREE.SkeletonUtils.clone(model);
     const mesh = firstMesh(body);
@@ -5986,7 +5987,7 @@ function updateFloatplane(dt, now) {
 const BALLOON_HOURS = { from: 6.25, to: 13 };
 const BALLOON_CLIMB_SLOPE = 0.02; // how steeply its path must rise for it to count as climbing
 const balloonClimb = new THREE.Vector3();
-const BALLOON_CHANCE = 0.5;
+const BALLOON_EVERY = 3; // it flies on one in this many clear mornings, starting with the first
 const BALLOON_SPOTTED = 0.3; // how far across it is when the campers point it out
 const BALLOON_VIEW_UNTIL = 0.5; // how far across it is before the Cycle view will leave it for anything but a takeover
 const POINT_OUT_SECONDS = 6; // how long the campers point something out to each other
@@ -6047,7 +6048,7 @@ function makeBalloon() {
 const balloon = makeBalloon();
 balloon.visible = false;
 scene.add(balloon);
-const balloonState = { mode: "away", tomorrow: true, along: 0, seconds: 1, burning: false, burnTimer: 1, burn: 0, spin: 0 };
+const balloonState = { mode: "away", tomorrow: true, clearMornings: 0, along: 0, seconds: 1, burning: false, burnTimer: 1, burn: 0, spin: 0 };
 // Where people look when they point it out: the middle of the envelope
 const balloonSight = new THREE.Vector3();
 const BURN_GLOW = new THREE.Color(1, 0.55, 0.2);
@@ -6059,8 +6060,9 @@ function updateBalloon(dt, now) {
     if (!b.tomorrow || hour < BALLOON_HOURS.from || hour > BALLOON_HOURS.from + 0.5) return;
     const seconds = secondsUntil(BALLOON_HOURS.to);
     b.tomorrow = false;
-    // Only when the fine spell will see the flight out, high cloud and all
-    if (weather.phase !== "clear" || weather.timer - HIGH_CLOUD_LEAD < seconds) return;
+    if (weather.phase !== "clear" || b.clearMornings++ % BALLOON_EVERY !== 0) return;
+    // The fine spell sees the flight out, high cloud and all
+    weather.timer = Math.max(weather.timer, seconds + HIGH_CLOUD_LEAD);
     Object.assign(b, { mode: "flying", along: 0, seconds, burning: true, burnTimer: 2, spin: Math.random() * Math.PI * 2 });
     balloon.visible = true;
   }
@@ -6420,9 +6422,71 @@ const CAMP_OBSTACLES = [FIRE_PIT, TENT, HAMMOCK];
 const CAMPER_SKIRTS = [HAMMOCK]; // (long, so they steer round it rather than creeping along its edge)
 // He comes out of the tent a little after her in the morning
 const CAMPERS = [
-  { jacket: 0x5a6b3c, trousers: 0x8a7a5a, skin: 0xc68a62, hat: 0xa88e5e, height: 1, chair: [23.1, -29.1], chairCanvas: 0xd9731f, stagger: 2.5 },
-  { jacket: 0x2f8a92, trousers: 0x4d525c, skin: 0xe3b48e, hair: 0x3e2618, height: 0.94, chair: [21.6, -30.3], chairCanvas: 0xb3261e, stagger: 0.5 }
+  { figure: "masculine", hat: true, ponytail: false, shirt: 0x3f7d3a, hair: 0x4a2f1c, height: 1, chair: [23.1, -29.1], chairCanvas: 0xd9731f, stagger: 2.5 },
+  { figure: "feminine", hat: false, ponytail: true, shirt: 0xc8322a, hair: 0xe6c66e, height: 0.94, chair: [21.6, -30.3], chairCanvas: 0xb3261e, stagger: 0.5 }
 ];
+// They're the Hiker Visitor from Polyfork (https://polyfork.dev/asset/hiker-visitor-d10aa5). Its figure and hat are built
+// into each file, but its colours aren't, so the shirt and hair are painted here, and its day pack is left off (it's a part
+// of its own, found by its canvas colour, as there's no setting for it). It has bones and no clips of its own:
+// all the campers' poses are worked out on the same jointed figure as the balloon's riders, kept out of sight and fitted
+// to the model's proportions, and each frame its joints are copied onto the bones.
+const HIKER_MODEL = knobs => `https://polyfork.dev/cdn/hiker-visitor-d10aa5-remix.glb?p=${encodeURIComponent(JSON.stringify(knobs))}`;
+const HIKER_SHIRT = new THREE.Color(0xbfccaa);
+const HIKER_HAIR = new THREE.Color(0x9a7a50);
+const HIKER_PACK = new THREE.Color(0xbc9c69);
+const HIKER_PONYTAIL_BEHIND = -0.1; // the tail and its band are the only shells of the hair that reach this far back
+const HIKER_HIDDEN_FIGURE = { jacket: 0, trousers: 0, skin: 0 };
+// (it's built in a T-pose, where the figure's arms hang at its sides)
+const hikerArmDown = side => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -side * Math.PI / 2);
+function paintHiker(model, { shirt, hair, ponytail }) {
+  const paints = [[HIKER_SHIRT, new THREE.Color(shirt)], [HIKER_HAIR, new THREE.Color(hair)]];
+  const isColor = (colors, i, { r, g, b }) => Math.abs(colors.getX(i) - r) + Math.abs(colors.getY(i) - g) + Math.abs(colors.getZ(i) - b) < 0.02;
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.frustumCulled = false; // (its skin moves off where it was first measured)
+    if (!ponytail && isColor(o.geometry.attributes.color, 0, HIKER_HAIR)) o.geometry = withoutShells(o.geometry, (position, i) => position.getZ(i) < HIKER_PONYTAIL_BEHIND);
+    const colors = o.geometry.attributes.color;
+    for (let i = 0; i < colors.count; i++) {
+      if (isColor(colors, i, HIKER_PACK)) o.visible = false;
+      for (const [from, to] of paints) {
+        if (isColor(colors, i, from)) colors.setXYZ(i, to.r, to.g, to.b);
+      }
+    }
+  });
+}
+// Line the hidden figure's joints up with the model's, and note which bone each one drives
+function fitFigureToHiker(camper, model) {
+  const c = camper.userData;
+  const bone = name => model.getObjectByName(name);
+  const rest = name => bone(name).getWorldPosition(new THREE.Vector3());
+  model.updateMatrixWorld(true);
+  const waist = rest("Spine");
+  c.upper.position.y = waist.y;
+  c.head.position.y = rest("Head").y - waist.y;
+  const bones = [[bone("Spine"), c.upper, null], [bone("Head"), c.head, null]];
+  for (const { thigh, knee, phase } of c.legs) {
+    const side = phase === 0 ? "Left" : "Right";
+    const hip = rest(`${side}UpLeg`);
+    thigh.position.copy(hip);
+    knee.position.y = rest(`${side}Leg`).y - hip.y;
+    bones.push([bone(`${side}UpLeg`), thigh, null], [bone(`${side}Leg`), knee, null]);
+  }
+  for (const { shoulder, side } of c.arms) {
+    const name = side > 0 ? "LeftArm" : "RightArm";
+    const joint = rest(name);
+    shoulder.position.set(joint.x, joint.y - waist.y, joint.z);
+    bones.push([bone(name), shoulder, hikerArmDown(side)]);
+  }
+  c.hikerBones = bones;
+}
+function poseHikers() {
+  for (const camper of campers) {
+    for (const [bone, joint, rest] of camper.userData.hikerBones || []) {
+      bone.quaternion.copy(joint.quaternion);
+      if (rest) bone.quaternion.multiply(rest);
+    }
+  }
+}
 const campers = CAMPERS.map((outfit, i) => {
   const [x, z] = outfit.chair;
   const facing = Math.atan2(FIRE_PIT.x - x, FIRE_PIT.z - z);
@@ -6437,7 +6501,16 @@ const campers = CAMPERS.map((outfit, i) => {
   });
   const chairSpot = { x, z, radius: 0.4 };
   CAMP_OBSTACLES.push(chairSpot);
-  const camper = makeCamper(outfit);
+  const camper = makeCamper(HIKER_HIDDEN_FIGURE);
+  camper.traverse(o => {
+    if (o.isMesh) o.visible = false;
+  });
+  loadPolyforkModel(HIKER_MODEL({ figure: outfit.figure, hat: outfit.hat }), "camper", model => {
+    paintHiker(model, outfit);
+    fitFigureToHiker(camper, model);
+    camper.userData.body.add(model);
+    castShadows(camper);
+  });
   camper.scale.setScalar(outfit.height);
   Object.assign(camper.userData, {
     height: outfit.height, abducted: null,
@@ -7592,7 +7665,7 @@ campers[1].userData.arms.find(arm => arm.side > 0).shoulder.add(lantern);
 const lanternLight = new THREE.PointLight(0xffb060, 0, 6, 2);
 scene.add(lanternLight);
 const LANTERN_SPOT = lakePoint(1.93 * Math.PI, 1.06).setY(groundY);
-// A blanket beside the fire to lie out on under the northern lights, heads to the fire
+// A blanket beside the fire to lie out on under the northern lights, long ways on to it, feet to the fire
 const BLANKET = new THREE.Vector3(20.2, groundY, -32.6);
 const blanketAlong = new THREE.Vector3(BLANKET.x - FIRE_PIT.x, 0, BLANKET.z - FIRE_PIT.z).normalize();
 const blanket = new THREE.Group();
@@ -7608,10 +7681,10 @@ blanket.rotation.y = Math.atan2(blanketAlong.x, blanketAlong.z);
 blanket.traverse(o => (o.receiveShadow = true));
 scene.add(blanket);
 campers.forEach((camper, i) => {
-  // Lying side by side, feet at the far end
+  // Lying side by side, feet at the end nearest the fire
   const across = new THREE.Vector3(-blanketAlong.z, 0, blanketAlong.x).multiplyScalar(i ? 0.38 : -0.38);
-  camper.userData.blanketSpot = BLANKET.clone().addScaledVector(blanketAlong, 0.85).add(across);
-  camper.userData.blanketFacing = blanket.rotation.y;
+  camper.userData.blanketSpot = BLANKET.clone().addScaledVector(blanketAlong, -0.85).add(across);
+  camper.userData.blanketFacing = blanket.rotation.y + Math.PI;
   camper.rotation.order = "YXZ";
 });
 
@@ -8451,7 +8524,7 @@ bear.visible = false;
 scene.add(bear);
 const bearState = {
   mode: "away", timer: 0, time: 0, route: [], then: "", heading: 0, speed: 0, stride: 0, gait: 0, rear: 0, nose: 0, campVisit: false, visited: false, last: -1,
-  wake: BEAR_HOURS.out + Math.random() * BEAR_HOURS.lieIn, phase: "watch", struck: false, atFalls: false, watching: null, leaper: null, emerging: false, leavingCave: false
+  wake: BEAR_HOURS.out + Math.random() * BEAR_HOURS.lieIn, phase: "watch", struck: false, atFalls: false, watching: null, leaper: null, emerging: false, leavingCave: false, watchPlanned: -1, watchOwed: false, watchedToday: false
 };
 // Where it noses about in the camp: in from the berries round the back of the tent, past the blanket
 // and the chairs to the fire pit, then out again past the front of the camp. It pushes past the
@@ -8499,6 +8572,7 @@ const BEAR_CLEAR_OF_CAVE = 7;
 const BEAR_SEEN_DEPTH = -0.5; // how close to the mouth of the cave it is when anyone at the falls catches sight of it
 function updateBear(dt, now) {
   const b = bearState;
+  planBearWatch();
   b.time += dt;
   b.timer -= dt;
   if (b.leavingCave && (b.mode !== "walk" || caveDepth(bear.position) > BEAR_CLEAR_OF_CAVE)) b.leavingCave = false;
@@ -9986,10 +10060,22 @@ const wolvesWatched = () => wolvesInSight() && ((cycle.on && CYCLE_VIEWS[cycle.i
 const stormOverLake = () => weather.storm > 0.5;
 const rainbowOut = () => weather.rainbow > 0.3;
 const canoeOut = () => canoeTrip.mode === "paddling";
-// From a little before the bear wakes (so the camera's there when it does) until it's clear of the cave
+// From a little before the bear wakes (so the camera's there when it does) until it's clear of the cave. It comes out
+// every morning, but the cameras only go to watch on one in so many, and never with the balloon up: then it waits for
+// the next morning without it.
 const BEAR_WAKE_LEAD = 0.9;
+const BEAR_WATCHED_EVERY = 3;
+function planBearWatch() {
+  const b = bearState;
+  if (b.watchPlanned === day || b.last === day || hour < b.wake - BEAR_WAKE_LEAD) return;
+  b.watchPlanned = day;
+  if (day % BEAR_WATCHED_EVERY === 0) b.watchOwed = true;
+  b.watchedToday = b.watchOwed && balloonState.mode === "away";
+  if (b.watchedToday) b.watchOwed = false;
+}
 function bearComingOut() {
   const b = bearState;
+  if (!b.watchedToday) return false;
   if (b.mode === "away") return b.last !== day && hour >= b.wake - BEAR_WAKE_LEAD && hour <= b.wake;
   return b.emerging || b.leavingCave;
 }
@@ -11223,8 +11309,7 @@ function frame() {
     bearState.wake = BEAR_HOURS.out + Math.random() * BEAR_HOURS.lieIn;
     // The floatplane, some afternoons (always the first)
     planeState.hour = lerp(PLANE_HOURS.from, 13, Math.random());
-    // The balloon, some mornings (always the first)
-    balloonState.tomorrow = Math.random() < BALLOON_CHANCE;
+    balloonState.tomorrow = true;
     wolves.tonight = Math.random() < WOLF_CHANCE;
   }
   if (lastHour < SUNSET && hour >= SUNSET) nightsSeen++;
@@ -11356,6 +11441,7 @@ function frame() {
   }
 
   renderer.shadowMap.needsUpdate = true;
+  poseHikers();
   renderReflection();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

@@ -10,7 +10,7 @@ An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over
 
 ## Running it
 
-Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, black bear, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
+Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, campers, black bear, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
 
 ## Controls
 
@@ -68,7 +68,7 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 32. Behind the beavers
 33. The beavers' dam, from the stream's side, looking down over it to the lodge and the lake
 34. Behind the otters
-35. The bear comes out: in front of the cave, a little before it wakes, to watch it walk out of the dark (it cuts in)
+35. The bear comes out: in front of the cave, a little before it wakes, to watch it walk out of the dark (it cuts in, about every third morning, but never with the balloon up: then it waits for the next morning without it)
 36. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
 37. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
 38. Vulture's-eye
@@ -128,7 +128,7 @@ The card in the top-left corner shows how far the eagle is from the camera, the 
 
 ### The campsite
 
-A man and a woman are camping on the right-hand shore. Their camp has a canvas ridge tent, two folding chairs, a stone fire pit and a hammock on posts, with a log bench down at the water's edge, and behind the tent stands a teardrop trailer with a long 4 m body and both its side doors and its galley hatch open, with their brown 1970s station wagon parked ahead of it.
+A man and a woman are camping on the right-hand shore: he has brown hair, a green shirt and a sun hat, and she has a blonde ponytail and a red shirt. Their camp has a canvas ridge tent, two folding chairs, a stone fire pit and a hammock on posts, with a log bench down at the water's edge, and behind the tent stands a teardrop trailer with a long 4 m body and both its side doors and its galley hatch open, with their brown 1970s station wagon parked ahead of it.
 
 - **By day:** they sit in their chairs or wander around the tent and fire pit. Now and then one of them walks down to the split-log bench at the water's edge beside the canoe to sit and watch the lake, and the other often comes to join them. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views. When the hot-air balloon comes over they point it out too, she first and then he, unless he's busy fishing.
 - **Fishing:** on dry mornings, a little after sunrise, he takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back.
@@ -138,7 +138,7 @@ A man and a woman are camping on the right-hand shore. Their camp has a canvas r
 - **Evening:** they light the fire at dusk and sit round it toasting marshmallows, which turn from white to golden brown. Smoke rises from the fire and leans with the wind, and lingers in the morning as the embers die.
 - **The lantern walk:** at dusk (except on stargazing nights) she takes a lantern down to the water's edge, stands looking out over the lake for a while and walks back up to the fire.
 - **The bear:** on the evenings the bear comes into the camp, they hurry into the tent and stay there with the lamp lit until it has nosed round the blanket, the chairs and the fire pit and gone.
-- **Stargazing:** on northern-lights nights, and on the comet's brightest night, they lie out on a blanket beside the fire to watch, and stay up until 23:30.
+- **Stargazing:** on northern-lights nights, and on the comet's brightest night, they lie out on a blanket beside the fire, with their feet towards it, to watch, and stay up until 23:30.
 - **The comet:** on comet evenings they point it out to each other as it comes out in the dusk, taking their marshmallows out of the fire a moment to do it.
 - **Night:** once they turn in (21:00, or later after stargazing) until sunrise, they're in the tent. A lamp lights it from inside and the fire burns outside, throwing sparks and a warm glow on the ground. Once they're both in with the lamp lit, the tent jiggles and sways for a few seconds as they settle in.
 
@@ -150,7 +150,7 @@ Once in a while on a fine day, a home-made biplane patched together from scrap p
 
 ### The hot-air balloon
 
-On calm mornings (the first, then about every other one) a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars in bursts as it climbs, in a flare of flame that lights the envelope from inside, which shows best in the dim early light. Once it levels off the burner stays quiet, and it sinks gently on the way down. Three riders stand in its basket, the pilot and two passengers. Through the flight they take turns pointing the lake out, while the others look or point too, and chatting: one turns to another and talks with a hand going, and the other turns to listen and nods along. Whenever the burner fires, the pilot reaches up and pulls down the cord that lights it. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
+On one in three clear mornings, starting with the first, a hot-air balloon in red and gold gores with a blue band rises from behind the foothill ahead and to the left soon after sunrise. Its burner roars in bursts as it climbs, in a flare of flame that lights the envelope from inside, which shows best in the dim early light. Once it levels off the burner stays quiet, and it sinks gently on the way down. Three riders stand in its basket, the pilot and two passengers. Through the flight they take turns pointing the lake out, while the others look or point too, and chatting: one turns to another and talks with a hand going, and the other turns to listen and nods along. Whenever the burner fires, the pilot reaches up and pulls down the cord that lights it. It drifts slowly across the far side of the valley, past the mountain and reflected in the lake, then sinks out of sight behind the foothills ahead by early afternoon. It only goes up when the fine weather will last the whole flight, so it never flies on a morning when high cloud or rain is on the way.
 
 ### The UFO
 
