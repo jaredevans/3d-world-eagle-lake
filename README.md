@@ -10,7 +10,7 @@ An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over
 
 ## Running it
 
-Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, campers, black bear, La Catrina, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
+Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, picnic shelter, table and food, campers, black bear, La Catrina, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
 
 ## Controls
 
@@ -19,18 +19,19 @@ Open `bald-eagle-flight.html` in a modern browser, either straight from disk or 
 | Drag (mouse or one finger) | Look around the eagle |
 | Mouse wheel (or trackpad pinch) | Zoom in or out |
 | Double-click / double-tap | Reset the view and zoom |
-| `R` | Back to the view from the front of the lake, leaving Follow, Eagle's-eye, Look around or Cycle view |
+| `R` | Back to the view from the front of the lake, leaving Follow, Eagle's-eye, Look around, Cycle view or Vantage views |
 | `1` / `2` / `3` | Camera distance: Close (3.2 m), Away (9 m) or Far away (30 m) |
 | `F` | Follow the eagle on a tour of the whole landscape |
 | `E` | Eagle's-eye view, riding just ahead of the beak |
 | `L` | Look around: leave the eagle and glide slowly round the lake |
 | `C` | Cycle view: tour vantage points among the animals and landmarks, 15 seconds at each; press again to skip ahead |
+| `V` | Vantage views: five views far back from the lake: the near shore, above the station wagon looking past it to the lake, below the falls, close by the picnic shelter from beyond the pond, and one that circles the whole lake, starting above the falls. Each press moves to the next, and the press after the last returns to the usual view |
 | `M` | Sound on or off (off by default) |
 | `I` (or the round button by the title) | Fold the card in the top-left corner down to just its title, or open it out again; it stays as you left it next time |
 
-Follow, Eagle's-eye, Look around and Cycle view are one at a time: turning one on turns the others off.
+Follow, Eagle's-eye, Look around, Cycle view and Vantage views are one at a time: turning one on turns the others off.
 
-In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer and over the beavers' lodge, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) and the otters' rock to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. A few times a lap, spread out round it, the camera leaves the loop to watch something from a little way off, drifting slowly round it, then glides back to where it left off. It can visit any of the animals and sights in Cycle view that are about (the floatplane and the UFO come to it instead), picking the ones it hasn't watched for longest, so over a few laps it gets round them all. It rises above the treetops before it travels, except to things on the water, which it watches from close and low over the lake. Each has its own distance and zoom: the fox up close like a telephoto lens, the owl's whole circling loop, the balloon and vultures from out in the sky beside them, the comet from the near shore. At night it goes straight on from the fox to the owl, or the other way round, as the nights are short. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, the mouse wheel zooms, and a double-click puts both back. It stops off for the loon, the canoe, the fishing, the kingfisher, the woodpecker, the hummingbird and the northern lights like everything else. For what's over too soon to wait its turn (the balloon, the floatplane, the biplane, the fox after the hare, the wolves against the moon, the bear coming out, a thunderstorm, the rainbow, the lit spider's web and the lantern walk), it breaks off whatever it's doing and hurries over.
+In Look around, the camera leaves the eagle to itself and drifts on a slow, curving loop of about two minutes. It starts at a vantage behind the tent, looking over the campsite to the lake. Then it swings behind the camp and along the far shore past the deer and over the beavers' lodge, turns to the snag and up to the eagles' nest, and rounds the left end of the lake past the moose (when he's in the water) and the otters' rock to the heron in the shallows. It glides low across the water, high enough to clear the canoe, and curls back round to the tent. A few times a lap, spread out round it, the camera leaves the loop to watch something from a little way off, drifting slowly round it, then glides back to where it left off. It can visit any of the animals and sights in Cycle view that are about (the floatplane and the UFO come to it instead), picking the ones it hasn't watched for longest, so over a few laps it gets round them all. It rises above the treetops before it travels, except to things on the water, which it watches from close and low over the lake. Each has its own distance and zoom: the fox up close like a telephoto lens, the owl's whole circling loop, the balloon and vultures from out in the sky beside them, the comet from the near shore. At night it goes straight on from the fox to the owl, or the other way round, as the nights are short. The camera keeps its gaze on the deer, the moose and the heron as they move, leans gently into the curves and eases in and out of the mode over ten seconds. Dragging turns its head, the mouse wheel zooms, and a double-click puts both back. It stops off for the loon, the canoe, the fishing, the kingfisher, the woodpecker, the hummingbird and the northern lights like everything else. For what's over too soon to wait its turn (the balloon, the floatplane, the biplane, the drive to the pond, the picnic, the fox after the hare, the wolves against the moon, the bear coming out, a thunderstorm, the rainbow, the lit spider's web and the lantern walk), it breaks off whatever it's doing and hurries over.
 
 Cycle view steps through vantage points, skipping any whose subject isn't about at the time. After 15 seconds at a view the camera glides on to the next one, taking a few seconds over it and arcing up over the landscape on longer hops, and after the last it carries on round from the first. Pressing `C` (or the Cycle view button) moves on straight away:
 
@@ -51,33 +52,35 @@ Cycle view steps through vantage points, skipping any whose subject isn't about 
 15. The canoe, chasing it round the lake (it cuts in)
 16. The lantern walk at dusk, from behind her on the way down to the water (it cuts in)
 17. The hummingbird, from just above it
-18. The bike ride, following the campers from behind (on the days they ride to the falls)
-19. Behind the raccoon
-20. Behind the deer
-21. Behind the fox
-22. The fox after the hare, chasing from just behind it
-23. Behind the owl, chasing it
-24. The comet, from the near shore across the lake, on comet evenings
-25. The wolves against the moon, from low down in front of the bluff, on the line that puts their heads in the middle of the moon wherever it's got to; time all but stands still for it (it cuts in)
-26. The northern lights, from over the lake, on the nights they're out
-27. The thunderstorm, from the starting view, with the lightning over the lake (it cuts in)
-28. The rainbow, from the starting view, as the rain clears (it cuts in)
-29. The spider's web, close up at dawn while it's lit (it cuts in)
-30. The falling satellite, from high over the lake and then chasing it down (it takes over)
-31. The UFO, from the shore just behind the starting view, then from over the water off the camp as it takes a camper; it stays on the UFO for its whole visit
-32. Behind the beavers
-33. The beavers' dam, from the stream's side, looking down over it to the lodge and the lake
-34. Behind the otters
-35. The bear comes out: in front of the cave, a little before it wakes, to watch it walk out of the dark (it cuts in, about every third morning, but never with the balloon up: then it waits for the next morning without it)
-36. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
-37. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
-38. Vulture's-eye
-39. Behind the vultures, from up behind the whole kettle as it circles, with the lake far off beyond it
-40. Behind the osprey
-41. Behind the red-tailed hawk
-42. The woodpecker, from beside the snag it's climbing
-43. At the foot of the falls, low down by the pool
-44. Above the falls
+18. The drive to the pond, following the station wagon, then swinging round the shelter to the front of the picnic table to see the campers come in and sit down to eat, round behind them when they walk down to the water, and pulling up and away once they've eaten and watched the pond; the clock slows for it (it takes over)
+19. The picnic by the pond, from behind the table looking across to the water
+20. The bike ride, following the campers from behind (on the days they ride to the falls)
+21. Behind the raccoon
+22. Behind the deer
+23. Behind the fox
+24. The fox after the hare, chasing from just behind it
+25. Behind the owl, chasing it
+26. The comet, from the near shore across the lake, on comet evenings
+27. The wolves against the moon, from low down in front of the bluff, on the line that puts their heads in the middle of the moon wherever it's got to; time all but stands still for it (it cuts in)
+28. The northern lights, from over the lake, on the nights they're out
+29. The thunderstorm, from the starting view, with the lightning over the lake (it cuts in)
+30. The rainbow, from the starting view, as the rain clears (it cuts in)
+31. The spider's web, close up at dawn while it's lit (it cuts in)
+32. The falling satellite, from high over the lake and then chasing it down (it takes over)
+33. The UFO, from the shore just behind the starting view, then from over the water off the camp as it takes a camper; it stays on the UFO for its whole visit
+34. Behind the beavers
+35. The beavers' dam, from the stream's side, looking down over it to the lodge and the lake
+36. Behind the otters
+37. The bear comes out: in front of the cave, a little before it wakes, to watch it walk out of the dark (it cuts in, about every third morning, but never with the balloon up: then it waits for the next morning without it)
+38. The bear: from its right-hand side while it's fishing in the stream, otherwise from above and behind
+39. Behind the balloon: the lower half of the canopy and the basket, with the lake beyond
+40. Vulture's-eye
+41. Behind the vultures, from up behind the whole kettle as it circles, with the lake far off beyond it
+42. Behind the osprey
+43. Behind the red-tailed hawk
+44. The woodpecker, from beside the snag it's climbing
+45. At the foot of the falls, low down by the pool
+46. Above the falls
 
 The "behind" views watch from just above and behind their subject, on its far side from the lake. Most views keep turning to look out over the lake as their subject moves. The duck and the dragonfly look where they're going. The floatplane and the owl are chased from just above and behind, the way they're heading, and the beavers and otters are followed from behind as they swim. The camp and deer views zoom in and out to keep the campers and the whole herd in frame, and the vultures' view to keep the kettle and the lake. If a subject goes while you're watching (the balloon lands, the bear heads home), the view moves on by itself. The floatplane, the balloon and the UFO take priority: when one turns up, the camera drops what it's watching and flies straight to it, dashing over to the balloon or the UFO in a couple of seconds so as not to miss them. Afterwards it picks up the round where it left off, with the view after the one it broke into (or, if it reached one of them in its turn, with the view after that). A press on the last view goes back to the usual view. Dragging turns the head, the mouse wheel zooms, and a double-click puts both back.
 
@@ -133,6 +136,7 @@ A man and a woman are camping on the right-hand shore: he has brown hair, a gree
 - **By day:** they sit in their chairs or wander around the tent and fire pit. Now and then one of them walks down to the split-log bench at the water's edge beside the canoe to sit and watch the lake, and the other often comes to join them. When the eagle passes close overhead, they stop and point at it, following it with their heads. If they're sitting, they twist round in the chair to point. The eagle comes close most often in the Far away and Follow views. When the hot-air balloon comes over they point it out too, she first and then he, unless he's busy fishing.
 - **Fishing:** on dry mornings, a little after sunrise, he takes a rod down to the shore below the camp. He casts out and waits for the bobber to dip. When he gets a bite he reels the fish in, holds it up to admire it and tosses it back.
 - **The bike ride:** two bikes stand beside the tent. On every fine day, once the canoe's ashore, they walk over, get on and ride off along the camp's side of the meadow, round past the berry bushes and clear of the stream, to the pool at the foot of the waterfall, riding a little to one side of each other. There they get off and walk down to the pool's edge: he points out the falls and the leaping fish while she holds up her phone for a photo. Then they ride back, home in time for the fire. They set off in the morning, or, if something keeps them in then (a morning out in the canoe, or the weather), around midday on a quicker ride with a shorter stay at the falls. They don't go if rain's on the way, and if the sky clouds over while they're out, they turn round and head home before it comes. On days the bear is fishing the pool, they keep back by their bikes and watch it from there, pointing and taking photos. If it comes out of its cave while they're at the falls, they hurry back to their bikes and ride straight home. The camera then rides ahead of them, looking back past them at the bear coming out.
+- **A day at the pond:** on one in three clear mornings they walk over to the station wagon and drive off behind the deer meadow, splashing through the stream, to a pond far off to the left of the lake. They spend the middle of the day at a picnic shelter on its shore, sitting at the table eating a lunch of hotdog and hamburger, with apples and a burrito on the side, and strolling down to the water, then drive home in time to light the fire. On those days there's no fishing, canoe or bike ride.
 - **The canoe:** a green canoe is pulled up on the shore below the camp. On calm, clear days, once his fishing's done (but not when the floatplane's due), they walk down, climb in and paddle a slow loop of the open water, on opposite sides, trailing a wake. On his fishing mornings they wait till he's finished. They glide back in to land and walk up to camp. If the sky starts to cloud over, they turn for home before the rain comes. On the water they still stop paddling to point at the eagle.
 - **Rain:** they go into the tent when it starts raining and come back out when it clears.
 - **Evening:** they light the fire at dusk and sit round it toasting marshmallows, which turn from white to golden brown. Smoke rises from the fire and leans with the wind, and lingers in the morning as the embers die.
@@ -178,6 +182,7 @@ On about one night in five (never in the first few, and never the same night as 
 
 ### Landscape
 
+- A pond far off to the left of the lake, ringed with cattails, with a picnic shelter on its near shore.
 - A lake that reflects the sky and scenery, broken up by moving ripples. The sun and moon glint on the water.
 - A waterfall straight ahead of the starting view, pouring off a rocky crag at the foot of a bluff beyond the deer meadow, with spray rising from its pool. Two cherry trees in blossom stand either side of the pool, and a cave mouth opens in the foot of the crag to the right of the falls, by where the campers leave their bikes, its dark tunnel curving away into the hill. On sunny afternoons a small rainbow hangs in the spray. Through the day, every couple of seconds a fish hurls itself up out of the pool at the falling water and drops back with a splash. Ferns ring the pool and grow on the lower ledges of the crag, fronds hang down the rock face either side of the falling water, cushions of dark moss sit on top of the rocks, and now and then a drop falls from the overhang. Its stream winds down through the meadow between reeds, carrying streaks of foam, and runs into the far shore of the lake beside the beavers' lodge.
 - A meadow of around 41,000 grass blades and 4,500 wildflowers, with fuller tufts of grass scattered all through it, drifts of larger golden, red, violet, white, pink and blue wildflowers, a few tall sunflowers round the lake that weave about in a storm's gusts, and apple trees dotted among the pines, with reeds and cattails along the shore, two tall clumps of reeds standing in the shallows, a great hollow log lying on the stream's bank and clusters of red toadstools further along it.

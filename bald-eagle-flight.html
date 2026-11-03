@@ -179,6 +179,7 @@ h1 {
     <button type="button" id="btn-eye" class="toggle" aria-pressed="false">Eagle’s-eye<kbd>E</kbd></button>
     <button type="button" id="btn-look" class="toggle" aria-pressed="false">Look around<kbd>L</kbd></button>
     <button type="button" id="btn-cycle" class="toggle" aria-pressed="false">Cycle view<kbd>C</kbd></button>
+    <button type="button" id="btn-vantage" class="toggle" aria-pressed="false">Vantage views<kbd>V</kbd></button>
     <button type="button" id="btn-sound" class="toggle" aria-pressed="false">Sound<kbd>M</kbd></button>
   </div>
   <div class="controls" role="group" aria-label="Distance between the eagle and the camera">
@@ -392,6 +393,21 @@ scene.add(ground);
 
 const LAKE = { x: 0, z: -20, rx: 20, rz: 10, y: groundY + 0.1 };
 const insideLake = (x, z, margin) => ((x - LAKE.x) / (LAKE.rx + margin)) ** 2 + ((z - LAKE.z) / (LAKE.rz + margin)) ** 2 < 1;
+// A pond far off to the left of the lake, with a picnic spot on its near shore, and the way the campers drive there
+// from where the station wagon's parked: round behind the trailer and the deer meadow, through the stream below the
+// mushrooms, between the nest pine and the apple tree, and down to the picnic shelter. Back the same way, after turning
+// round beside the shelter and pulling straight in to the wagon's spot at the end. Trees and boulders are left off the
+// way, without moving any others.
+const POND = { x: -73, z: -25, rx: 12, rz: 8 };
+const insidePond = (x, z, margin) => ((x - POND.x) / (POND.rx + margin)) ** 2 + ((z - POND.z) / (POND.rz + margin)) ** 2 < 1;
+const PICNIC = { x: -56, z: -27, pad: 4, floor: 0.12, bench: 0.62, apart: 0.42 };
+const onPicnicPad = ({ x, z }) => Math.abs(x - PICNIC.x) < PICNIC.pad && Math.abs(z - PICNIC.z) < PICNIC.pad;
+const DRIVE_WAY = [[37, -38.2], [40, -40.5], [38, -44], [31, -45.5], [18, -47], [7, -55], [-4, -60], [-11, -56.5], [-19, -52], [-31, -45], [-42, -37], [-48.5, -30.5]];
+const driveCurve = points => new THREE.CatmullRomCurve3(points.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, "catmullrom", 0.5);
+const DRIVE_OUT = driveCurve([[33.2, -38.1], ...DRIVE_WAY]);
+const DRIVE_BACK = driveCurve([[-48.5, -30.5], [-50.8, -32.8], [-51, -36], [-47.5, -38.5], [-42, -39.5], ...DRIVE_WAY.slice(4, 9).reverse(), [23, -42], [27.5, -38.4], [33.2, -38.1]]);
+const DRIVE_SPOTS = [...DRIVE_OUT.getSpacedPoints(120), ...DRIVE_BACK.getSpacedPoints(120)];
+const onDriveOrPond = (x, z, margin) => insidePond(x, z, margin + 2) || Math.hypot(x - PICNIC.x, z - PICNIC.z) < margin + 6 || DRIVE_SPOTS.some(spot => Math.hypot(x - spot.x, z - spot.z) < margin + 1.2);
 function keepOutOfLake(position, margin) {
   const dx = (position.x - LAKE.x) / (LAKE.rx + margin);
   const dz = (position.z - LAKE.z) / (LAKE.rz + margin);
@@ -557,6 +573,15 @@ water.position.set(LAKE.x, LAKE.y, LAKE.z);
 water.layers.set(NOT_REFLECTED);
 shore.receiveShadow = true;
 scene.add(shore, water);
+const pondShore = new THREE.Mesh(shore.geometry, shore.material);
+pondShore.scale.set(POND.rx + 1.2, 1, POND.rz + 1);
+pondShore.position.set(POND.x, groundY + 0.05, POND.z);
+pondShore.receiveShadow = true;
+const pondWater = new THREE.Mesh(water.geometry, water.material);
+pondWater.scale.set(POND.rx, 1, POND.rz);
+pondWater.position.set(POND.x, LAKE.y, POND.z);
+pondWater.layers.set(NOT_REFLECTED);
+scene.add(pondShore, pondWater);
 // The water's shader doesn't take shadows, so a shadow-only layer just above it catches them
 const lakeShadow = new THREE.Mesh(new THREE.CircleGeometry(1, 64).rotateX(-Math.PI / 2), new THREE.ShadowMaterial({ opacity: 0.35 }));
 lakeShadow.scale.set(LAKE.rx, 1, LAKE.rz);
@@ -712,7 +737,7 @@ for (let i = 0; i < 45; i++) {
   // Draw the height even for a tree left out (of the campsite, the stream or the falls), so the rest
   // of the scenery is unchanged
   const h = 3 + rand() * 4;
-  if (!nearCamp(x, z, 2) && !nearStream(x, z, 2) && !nearFalls(x, z, 2)) addTree(x, z, h);
+  if (!nearCamp(x, z, 2) && !nearStream(x, z, 2) && !nearFalls(x, z, 2) && !onDriveOrPond(x, z, 1.5)) addTree(x, z, h);
 }
 
 // A dead snag on the far-left shore, where the eagle lands to eat its catch
@@ -814,7 +839,7 @@ for (let placed = 0; placed < RING_TREES; ) {
   const h = 3 + ringRand() * 4;
   const alreadyPlanted = z < FRONT_TREES.zMax && Math.abs(x) < FRONT_TREES.xMax;
   if (alreadyPlanted || Math.hypot(x, z) < HOME_CLEARING || insideLake(x, z, 4) || Math.hypot(x - SNAG.x, z - SNAG.z) < 4) continue;
-  addTree(x, z, h);
+  if (!onDriveOrPond(x, z, 1.5)) addTree(x, z, h);
   placed++;
 }
 for (let i = 0; i < 8; i++) addCloud(ringRand, (position, r) => position.set(-140 + r() * 280, 14 + r() * 18, 40 + r() * 150));
@@ -826,7 +851,7 @@ for (let i = 0; i < 40; i++) {
   const z = -100 + ringRand() * 180;
   const size = 0.3 + ringRand() * 0.9;
   const turn = ringRand() * Math.PI;
-  if (insideLake(x, z, 2) || Math.hypot(x, z) < 8 || nearCamp(x, z, 1) || nearStream(x, z, 1) || nearFalls(x, z, 0)) continue;
+  if (insideLake(x, z, 2) || Math.hypot(x, z) < 8 || nearCamp(x, z, 1) || nearStream(x, z, 1) || nearFalls(x, z, 0) || onDriveOrPond(x, z, 1)) continue;
   const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(size, 0), rockMat);
   rock.scale.y = 0.55;
   rock.rotation.y = turn;
@@ -1389,7 +1414,7 @@ const ringPlace = (minRadius, maxRadius) => () => {
     const angle = Math.random() * Math.PI * 2;
     x = Math.cos(angle) * radius;
     z = Math.sin(angle) * radius;
-  } while (insideLake(x, z, 2.5) || underHill(x, z) || nearCamp(x, z, 0) || nearStream(x, z, 0.9) || nearFalls(x, z, -2));
+  } while (insideLake(x, z, 2.5) || insidePond(x, z, 2) || onPicnicPad({ x, z }) || underHill(x, z) || nearCamp(x, z, 0) || nearStream(x, z, 0.9) || nearFalls(x, z, -2));
   return [x, z];
 };
 // `place` picks each plant's [x, z]
@@ -1490,6 +1515,12 @@ loadPolyforkModel(CATTAIL_MODEL, "cattail reed", model => {
   swayInWind(material, 1.2);
   scatterModel(geometry, material, 280, shorePlace, 0.8, 1.3);
   scatterModel(geometry, material, 90, streamBankPlace, 0.7, 1.05);
+  scatterModel(geometry, material, 60, () => {
+    // Round the pond's edge, leaving the side by the picnic shelter open
+    const angle = 0.6 + Math.random() * (Math.PI * 2 - 1.2);
+    const reach = 0.92 + Math.random() * 0.22;
+    return [POND.x + Math.cos(angle) * POND.rx * reach, POND.z + Math.sin(angle) * POND.rz * reach];
+  }, 0.8, 1.3);
 });
 // Fuller tufts of grass all over the meadow, thick among the blades near the lake and thinning out beyond it: the
 // Grass Tuft from Polyfork (https://polyfork.dev/asset/grass-tuft-a40a08). They're larger than life, so they show.
@@ -6303,7 +6334,60 @@ loadPolyforkModel(WAGON_MODEL, "station wagon", model => {
   });
   wagon.add(model);
   castShadows(wagon);
+  wagon.userData.wheels = ["wheel-fr", "wheel-fl", "wheel-rr", "wheel-rl"].map(name => model.getObjectByName(name));
+  wagon.userData.steering = ["steer-fr", "steer-fl"].map(name => model.getObjectByName(name));
 });
+// Their picnic spot by the pond: the Park Picnic Shelter (https://polyfork.dev/asset/park-picnic-shelter-9548a3) and,
+// on its concrete pad, the Heavy Timber Picnic Table (https://polyfork.dev/asset/heavy-timber-picnic-table-1ac060)
+const picnicShelter = new THREE.Group();
+picnicShelter.position.set(PICNIC.x, groundY, PICNIC.z);
+const picnicTable = new THREE.Group();
+picnicTable.position.set(PICNIC.x, groundY + PICNIC.floor, PICNIC.z);
+picnicTable.rotation.y = Math.PI / 2;
+scene.add(picnicShelter, picnicTable);
+for (const [url, name, holder] of [["https://polyfork.dev/cdn/park-picnic-shelter-9548a3.glb", "picnic shelter", picnicShelter], ["https://polyfork.dev/cdn/heavy-timber-picnic-table-1ac060.glb", "picnic table", picnicTable]]) {
+  loadPolyforkModel(url, name, model => {
+    holder.add(model);
+    castShadows(holder);
+  });
+}
+// Their lunch from Polyfork, set out on the table when they get there: a hamburger for her and a hotdog for him, each at
+// their own place, with a burrito to share, apples and a bottle or two. It's larger than life so it shows from a way off.
+const PICNIC_FOOD_SCALE = 1.6;
+const PICNIC_TABLE_TOP = 0.764;
+const picnicFood = new THREE.Group();
+picnicFood.visible = false;
+picnicTable.add(picnicFood);
+const PICNIC_MEALS = {};
+for (const [url, name, places, size = PICNIC_FOOD_SCALE] of [
+  ["hamburger-060fd6", "hamburger", [[-0.42, 0.14, 0.4]]],
+  ["hotdog-4e86d3", "hotdog", [[0.42, 0.14, 1.2]]],
+  ["burrito-5208d8", "burrito", [[0, -0.2, 0.7]]],
+  ["apple-b15012", "apple", [[0.1, 0.05, 0], [0.24, -0.08, 1.7], [-0.02, -0.04, 3.1]]],
+  ["bottle-ca0f79", "bottle", [[-0.2, -0.18, 0], [0.7, -0.05, 0]], 1]
+]) {
+  loadPolyforkModel(`https://polyfork.dev/cdn/${url}.glb`, name, model => {
+    PICNIC_MEALS[name] = [];
+    for (const [x, z, turn] of places) {
+      const item = model.clone();
+      item.position.set(x, PICNIC_TABLE_TOP, z);
+      item.rotation.y = turn;
+      item.scale.setScalar(size);
+      castShadows(item);
+      picnicFood.add(item);
+      PICNIC_MEALS[name].push(item);
+    }
+    // The one that's picked up to eat is a copy in the hand
+    for (const camper of campers) {
+      const c = camper.userData;
+      if (c.meal !== name) continue;
+      const held = model.clone();
+      held.scale.setScalar(PICNIC_FOOD_SCALE);
+      held.position.set(-0.05, -0.03, 0.03);
+      c.heldFood.add(held);
+    }
+  });
+}
 // The Hammock on Posts (https://polyfork.dev/asset/hammock-on-posts-7d5c47), running alongside the tent
 const HAMMOCK_MODEL = "https://polyfork.dev/cdn/hammock-on-posts-7d5c47.glb";
 const hammock = new THREE.Group();
@@ -6501,8 +6585,8 @@ const CAMP_OBSTACLES = [FIRE_PIT, TENT, HAMMOCK];
 const CAMPER_SKIRTS = [HAMMOCK]; // (long, so they steer round it rather than creeping along its edge)
 // He comes out of the tent a little after her in the morning
 const CAMPERS = [
-  { figure: "masculine", hat: true, ponytail: false, shirt: 0x3f7d3a, hair: 0x4a2f1c, height: 1, chair: [23.1, -29.1], chairCanvas: 0xd9731f, stagger: 2.5 },
-  { figure: "feminine", hat: false, ponytail: true, shirt: 0xc8322a, hair: 0xe6c66e, height: 0.94, chair: [21.6, -30.3], chairCanvas: 0xb3261e, stagger: 0.5 }
+  { meal: "hotdog", figure: "masculine", hat: true, ponytail: false, shirt: 0x3f7d3a, hair: 0x4a2f1c, height: 1, chair: [23.1, -29.1], chairCanvas: 0xd9731f, stagger: 2.5 },
+  { meal: "hamburger", figure: "feminine", hat: false, ponytail: true, shirt: 0xc8322a, hair: 0xe6c66e, height: 0.94, chair: [21.6, -30.3], chairCanvas: 0xb3261e, stagger: 0.5 }
 ];
 // They're the Hiker Visitor from Polyfork (https://polyfork.dev/asset/hiker-visitor-d10aa5). Its figure and hat are built
 // into each file, but its colours aren't, so the shirt and hair are painted here, and its day pack is left off (it's a part
@@ -6515,6 +6599,7 @@ const HIKER_HAIR = new THREE.Color(0x9a7a50);
 const HIKER_PACK = new THREE.Color(0xbc9c69);
 const HIKER_PONYTAIL_BEHIND = -0.1; // the tail and its band are the only shells of the hair that reach this far back
 const HIKER_HIDDEN_FIGURE = { jacket: 0, trousers: 0, skin: 0 };
+const HIKER_ELBOW_BEND = 2;
 // (it's built in a T-pose, where the figure's arms hang at its sides)
 const hikerArmDown = side => new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -side * Math.PI / 2);
 function paintHiker(model, { shirt, hair, ponytail }) {
@@ -6557,6 +6642,9 @@ function fitFigureToHiker(camper, model) {
     bones.push([bone(name), shoulder, hikerArmDown(side)]);
   }
   c.hikerBones = bones;
+  c.eatingElbow = bone("RightForeArm");
+  bone("RightHand").add(c.heldFood);
+  c.heldFood.position.set(-0.07, 0, 0);
 }
 function poseHikers() {
   for (const camper of campers) {
@@ -6564,6 +6652,9 @@ function poseHikers() {
       bone.quaternion.copy(joint.quaternion);
       if (rest) bone.quaternion.multiply(rest);
     }
+    // (the figure's arms are straight, so the elbow that lifts a bite to the mouth is added here)
+    const { eatingElbow, eating } = camper.userData;
+    if (eatingElbow) eatingElbow.rotation.y = HIKER_ELBOW_BEND * eating;
   }
 }
 const campers = CAMPERS.map((outfit, i) => {
@@ -6592,6 +6683,7 @@ const campers = CAMPERS.map((outfit, i) => {
   });
   camper.scale.setScalar(outfit.height);
   Object.assign(camper.userData, {
+    meal: outfit.meal, heldFood: new THREE.Group(), eating: 0, eaten: 0,
     height: outfit.height, abducted: null,
     benchFront: benchSpot(i ? 0.45 : -0.45, 0.5), benchSeat: benchSpot(i ? 0.45 : -0.45, -SEAT_BACK), benchRoute: [],
     chairSpot, chairFacing: facing, stagger: outfit.stagger, sight: new THREE.Vector3(), spotting: 0, spotWhat: null, bikeMount: new THREE.Vector3(), panic: false, panicAt: new THREE.Vector3(),
@@ -7498,7 +7590,7 @@ function updateBikes(dt, now) {
     const outing = BIKE_OUTINGS.find(({ from, to }) => hour >= from && hour < to);
     if (t.day === day || !outing) return;
     const free = campers.every(camper => ["stand", "walk", "sit", "toBench", "bench"].includes(camper.userData.state) && !camper.userData.abducted);
-    const fine = weather.phase === "clear" && weather.timer > 40 && canoeTrip.mode === "beached";
+    const fine = weather.phase === "clear" && weather.timer > 40 && canoeTrip.mode === "beached" && wagonTrip.mode === "parked";
     if (!free || !fine || ufoAbout()) return;
     // Once a day
     Object.assign(t, { day, outing, mode: "mounting" });
@@ -7667,7 +7759,7 @@ function updateCanoe(dt, now, night) {
     // Not on the floatplane's days, when the lake will be busy
     const fine = weather.phase === "clear" && weather.timer > 40 && planeState.mode === "away" && !planeDue();
     const free = states.every(state => !["inTent", "toTent", "toFish", "fishing"].includes(state));
-    if (canoeLoaded && t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free && bikeTrip.mode === "parked") {
+    if (canoeLoaded && wagonTrip.mode === "parked" && t.day !== day && hour >= CANOE_HOURS.from && hour < CANOE_HOURS.to && fine && free && bikeTrip.mode === "parked") {
       t.mode = "boarding";
       for (const camper of campers) setCamperState(camper, "toCanoe");
     }
@@ -7765,6 +7857,14 @@ campers.forEach((camper, i) => {
   camper.userData.blanketSpot = BLANKET.clone().addScaledVector(blanketAlong, -0.85).add(across);
   camper.userData.blanketFacing = blanket.rotation.y + Math.PI;
   camper.rotation.order = "YXZ";
+  // Side by side on the bench looking out over the pond, and each with a spot at its edge to walk down to
+  const along = i ? PICNIC.apart : -PICNIC.apart;
+  Object.assign(camper.userData, {
+    wagonDoor: new THREE.Vector3(), outingTimer: 0,
+    picnicSeat: new THREE.Vector3(PICNIC.x + PICNIC.bench, groundY + PICNIC.floor, PICNIC.z + along),
+    picnicFront: new THREE.Vector3(PICNIC.x + PICNIC.bench + 0.45, groundY, PICNIC.z + along),
+    pondEdge: new THREE.Vector3(POND.x + POND.rx + 0.6, groundY, POND.z + (i ? 0.7 : -1.4))
+  });
 });
 
 // On dry mornings, a little after sunrise, he walks down to fish from the shore below
@@ -7908,6 +8008,8 @@ function pickCampSpot(out) {
   } while (CAMP_OBSTACLES.some(o => Math.hypot(out.x - o.x, out.z - o.z) < o.radius + 0.3));
   return out;
 }
+// (out for the day at the pond, when the wagon sees to them, not the camp)
+const CAMPER_OUTING = new Set(["toWagon", "atWagon", "inWagon", "toPicnic", "picnic", "toPond", "atPond"]);
 function setCamperState(camper, state) {
   const c = camper.userData;
   c.benchRoute = state === "toBench" ? [BENCH_BEHIND, BENCH_END] : c.state === "bench" && state !== "inTent" ? [c.benchFront, BENCH_END, BENCH_BEHIND] : [];
@@ -7953,6 +8055,13 @@ function setCamperState(camper, state) {
     c.timer = 20;
   } else if (state === "fishing" || state === "stargaze") {
     c.timer = Infinity; // until the fishing's done, or bedtime
+  } else if (CAMPER_OUTING.has(state)) {
+    c.timer = Infinity; // the day out decides when they move on
+    if (state === "toWagon") c.target.copy(c.wagonDoor);
+    else if (state === "toPicnic") c.target.copy(c.picnicFront);
+    else if (state === "toPond") c.target.copy(c.pondEdge);
+    else if (state === "picnic") c.outingTimer = 6 + Math.random() * 4;
+    else if (state === "atPond") c.outingTimer = 5 + Math.random() * 2;
   }
   if (state !== "toShore" && state !== "atShore" && state !== "toChair") c.carrying = false;
 }
@@ -7970,10 +8079,12 @@ function nextCamperState(camper) {
   else setCamperState(camper, "stand");
 }
 // What a camper does on reaching where it was walking to
-const CAMPER_ARRIVALS = { walk: "stand", toChair: "sit", toBench: "bench", toTent: "inTent", toCanoe: "boarding", toShore: "atShore", toFish: "fishing", toBlanket: "stargaze", toBike: "astride" };
+const CAMPER_ARRIVALS = { toWagon: "atWagon", toPicnic: "picnic", toPond: "atPond", walk: "stand", toChair: "sit", toBench: "bench", toTent: "inTent", toCanoe: "boarding", toShore: "atShore", toFish: "fishing", toBlanket: "stargaze", toBike: "astride" };
 
 const eagleLocal = new THREE.Vector3();
 const lookLocal = new THREE.Vector3();
+const PICNIC_BITES = 0.35; // how much of a meal goes each second it's at the mouth
+const PICNIC_HAND_REST = 0.72; // how far up towards the mouth the hand stays between bites, clear of the table
 const armAim = new THREE.Quaternion();
 const armSwing = new THREE.Euler();
 const ARM_DOWN = new THREE.Vector3(0, -1, 0);
@@ -7994,7 +8105,7 @@ function updateCamper(camper, dt, now, indoors) {
   }
   // Out on the water they paddle back in first; the trip lands them
   const afloat = c.state === "boarding" || c.state === "inCanoe";
-  if (indoors && !afloat && c.state !== "toTent") setCamperState(camper, "toTent");
+  if (indoors && !afloat && c.state !== "toTent" && !CAMPER_OUTING.has(c.state)) setCamperState(camper, "toTent");
   c.timer -= dt;
   if (c.timer <= 0) nextCamperState(camper);
   else if (c.state in CAMPER_ARRIVALS && Math.hypot(c.target.x - camper.position.x, c.target.z - camper.position.z) < 0.25) {
@@ -8015,20 +8126,21 @@ function updateCamper(camper, dt, now, indoors) {
   // take the stick out of the fire a moment to point something out)
   const busy = c.state === "fishing" || c.state === "stargaze" || (c.roast > 0.5 && !spotting) || c.lie > 0.1;
   c.point += (((overhead || spotting) && !indoors && !busy ? 1 : 0) - c.point) * easeFactor(dt, 4);
-  const seated = c.state === "sit" || c.state === "bench";
+  const seated = c.state === "sit" || c.state === "bench" || c.state === "picnic";
   c.sit += ((seated || afloat ? 1 : 0) - c.sit) * easeFactor(dt, 3);
   c.boat += ((afloat ? 1 : 0) - c.boat) * easeFactor(dt, 3);
   c.roast += ((c.state === "sit" && hour >= FIRE_HOUR && camp.fire > 0.5 ? 1 : 0) - c.roast) * easeFactor(dt, 2);
   c.lie += ((c.state === "stargaze" ? 1 : 0) - c.lie) * easeFactor(dt, 2.5);
   // Stand still to point, and get up out of the chair (or off the blanket) before walking off; with
   // the bear about, they hurry
-  const hurry = c.state === "toTent" && bearNearCamp() ? 2.2 : 1;
+  const hurry = c.state === "toTent" && bearNearCamp() ? 2.2 : CAMPER_OUTING.has(c.state) ? 2 : 1;
   // Slowing for the last step, so they don't circle round where they're going
   const arriving = clamp(Math.hypot(c.target.x - camper.position.x, c.target.z - camper.position.z) / (0.3 * hurry), 0.4, 1);
   c.speed += ((moving ? CAMPER_WALK_SPEED * hurry * arriving * (1 - c.point) * (1 - c.sit) * (1 - c.lie) : 0) - c.speed) * easeFactor(dt, 5);
   if (seated) {
-    camper.position.lerp(c.state === "bench" ? c.benchSeat : c.seat, easeFactor(dt, 5));
-    camper.rotation.y += turnTowards(camper.rotation.y, c.state === "bench" ? BENCH_FACING : c.chairFacing) * easeFactor(dt, 5);
+    const picnicking = c.state === "picnic";
+    camper.position.lerp(picnicking ? c.picnicSeat : c.state === "bench" ? c.benchSeat : c.seat, easeFactor(dt, 5));
+    camper.rotation.y += turnTowards(camper.rotation.y, picnicking ? -Math.PI / 2 : c.state === "bench" ? BENCH_FACING : c.chairFacing) * easeFactor(dt, 5);
   } else if (afloat) {
     // Step in and settle onto the seat, then ride along with the canoe
     if (c.state === "boarding") {
@@ -8040,12 +8152,12 @@ function updateCamper(camper, dt, now, indoors) {
     }
   } else {
     // Back on dry land after the canoe (or lying a body's thickness up off the blanket)
-    camper.position.y += (groundY + 0.13 * c.lie - camper.position.y) * easeFactor(dt, 4);
+    camper.position.y += (groundY + (onPicnicPad(camper.position) ? PICNIC.floor : 0) + 0.13 * c.lie - camper.position.y) * easeFactor(dt, 4);
     if (c.benchRoute.length && flatGap(camper.position, c.benchRoute[0]) < 0.4) c.benchRoute.shift();
     const heading = c.benchRoute[0] || c.target;
     const toTarget = skirt(camper.position, Math.atan2(heading.x - camper.position.x, heading.z - camper.position.z), CAMPER_SKIRTS);
     const lakeward = c.state === "fishing" || c.state === "atShore";
-    let facing = c.point > 0.5 ? toEagle : moving ? toTarget : lakeward ? FISHING_FACING : camper.rotation.y;
+    let facing = c.point > 0.5 ? toEagle : moving ? toTarget : lakeward ? FISHING_FACING : c.state === "atPond" ? Math.atan2(POND.x - camper.position.x, POND.z - camper.position.z) : camper.rotation.y;
     if (c.state === "stargaze") {
       facing = c.blanketFacing;
       camper.position.x += (c.blanketSpot.x - camper.position.x) * easeFactor(dt, 3);
@@ -8093,11 +8205,24 @@ function updateCamper(camper, dt, now, indoors) {
     // Holding a marshmallow out over the fire, or fishing
     if (side < 0 && c.roast > 0.001) shoulder.quaternion.slerp(armAim.setFromEuler(armSwing.set(-1.0 + Math.sin(now * 0.7 + c.seed) * 0.05, 0.25, -0.08)), c.roast);
     if (side < 0 && c.state === "fishing") shoulder.quaternion.setFromEuler(armSwing.set(fishing.arm, 0, -0.1));
+    // Lifting a bite to the mouth, and back to rest on the table
+    if (side < 0 && c.state === "picnic") shoulder.quaternion.slerp(armAim.setFromEuler(armSwing.set(-1, 0.55, 0)), c.eating * c.sit);
     // The right arm points straight at the eagle (or the balloon)
     if (side < 0 && c.point > 0.001) {
       armAim.setFromUnitVectors(ARM_DOWN, lookLocal.copy(eagleLocal).sub(shoulder.position).normalize());
       shoulder.quaternion.slerp(armAim, c.point);
     }
+  }
+  // At the table they eat, a bite at a time, until there's little left
+  const biting = c.state === "picnic" && c.sit > 0.9 && c.point < 0.05 && Math.sin(now * 1.4 + c.seed) > 0.45;
+  c.eating += ((biting ? 1 : c.state === "picnic" ? PICNIC_HAND_REST : 0) - c.eating) * easeFactor(dt, 6);
+  if (c.eating > 0.85) c.eaten = Math.min(c.eaten + dt * PICNIC_BITES, 0.85);
+  c.heldFood.visible = c.state === "picnic";
+  c.heldFood.scale.setScalar(1 - c.eaten);
+  const onTable = PICNIC_MEALS[c.meal]?.[0];
+  if (onTable) {
+    onTable.visible = c.state !== "picnic";
+    onTable.scale.setScalar(PICNIC_FOOD_SCALE * (1 - c.eaten));
   }
   // Glance about while idle; follow the eagle (or the balloon) while pointing
   lookLocal.copy(eagleLocal).sub(head.position);
@@ -8112,11 +8237,138 @@ function updateCamper(camper, dt, now, indoors) {
   c.marshmallow.material.color.copy(MARSHMALLOW_RAW).lerp(MARSHMALLOW_TOASTED, smoothstep(c.toast, 0.2, 1));
 }
 
+// A day out at the pond in the wagon, on one in three clear mornings (the one after the balloon's, if they fall in step):
+// over to the car after breakfast, out there by late morning, a long sit at the picnic table with walks down to the water,
+// and home again in time to light the fire. The fine spell holds till they're back.
+const WAGON_TRIP = { every: 3, turn: 1, from: 6.6, to: 9, leave: 14.8, home: 18.5, speed: 11, accelerate: 1.2, wheel: 0.33 };
+const wagonTrip = { mode: "parked", day: -1, clearMornings: 0, route: null, next: "", length: 1, along: 0, speed: 0, picnicWatch: null, watchOut: 0 };
+const wagonDriving = () => wagonTrip.mode === "driving";
+const wagonAtPicnic = () => wagonTrip.mode === "atPicnic";
+// The camera stays for their first round at the pond: "table" while they come in and eat, "pond" once they head down to the
+// water, then "out" as it pulls away. The clock slows meanwhile, so lunch has time to happen.
+const PICNIC_PULL_OUT = 6.5;
+const picnicWatched = () => wagonAtPicnic() && wagonTrip.picnicWatch !== null;
+function updatePicnicWatch(dt) {
+  const t = wagonTrip;
+  if (t.picnicWatch === null) return;
+  if (t.picnicWatch === "out") {
+    t.watchOut -= dt;
+    if (t.watchOut <= 0) t.picnicWatch = null;
+    return;
+  }
+  if (campers.some(camper => camper.userData.state === "toPond" || camper.userData.state === "atPond")) t.picnicWatch = "pond";
+  if (campers.every(camper => camper.userData.pondVisits > 0) || hour >= WAGON_TRIP.leave - 0.2) Object.assign(t, { picnicWatch: "out", watchOut: PICNIC_PULL_OUT });
+}
+const wagonSpot = new THREE.Vector3();
+const wagonAhead = new THREE.Vector3();
+function sendCampersToWagon() {
+  wagon.updateMatrixWorld();
+  campers.forEach((camper, i) => {
+    wagon.localToWorld(camper.userData.wagonDoor.set(i ? -1.25 : 1.25, 0, 0.3));
+    camper.userData.wagonDoor.y = groundY;
+    setCamperState(camper, "toWagon");
+  });
+}
+function campersOutOfWagon(next) {
+  wagon.updateMatrixWorld();
+  for (const camper of campers) {
+    wagon.localToWorld(camper.position.set(camper === campers[0] ? 1.25 : -1.25, 0, 0.3)).setY(groundY);
+    camper.rotation.y = wagon.rotation.y;
+    camper.visible = true;
+    setCamperState(camper, next);
+  }
+}
+function placeWagon(dt) {
+  const t = wagonTrip;
+  const left = t.length - t.along;
+  const wanted = Math.min(WAGON_TRIP.speed, 1 + left * 1.2);
+  t.speed += (wanted - t.speed) * easeFactor(dt, WAGON_TRIP.accelerate);
+  t.along = Math.min(t.along + t.speed * dt, t.length);
+  const u = t.along / t.length;
+  t.route.getPointAt(u, wagonSpot);
+  wagon.position.set(wagonSpot.x, groundY, wagonSpot.z);
+  t.route.getTangentAt(u, wagonAhead);
+  const yaw = Math.atan2(wagonAhead.x, wagonAhead.z);
+  t.route.getTangentAt(Math.min(u + 3 / t.length, 1), wagonAhead);
+  const steer = clamp(turnTowards(yaw, Math.atan2(wagonAhead.x, wagonAhead.z)) * 1.6, -0.5, 0.5);
+  wagon.rotation.y = yaw;
+  for (const wheel of wagon.userData.wheels || []) wheel.rotation.x += (t.speed * dt) / WAGON_TRIP.wheel;
+  for (const front of wagon.userData.steering || []) front.rotation.y += (steer - front.rotation.y) * easeFactor(dt, 6);
+  // Spray as it splashes through the stream, and the deer don't stay to see it pass
+  if (nearStream(wagon.position.x, wagon.position.z, 0) && Math.random() < dt * 22) splash(wagon.position, 0.12);
+  for (const deer of herd) {
+    if (deer.userData.state !== "flee" && flatGap(deer.position, wagon.position) < 9) {
+      deer.userData.targetHeading = bearing(wagon.position, deer.position);
+      setDeerState(deer, "flee");
+    }
+  }
+  return t.along >= t.length;
+}
+function updateWagonTrip(dt, now) {
+  const t = wagonTrip;
+  if (t.mode === "parked") {
+    if (t.day === day || hour < WAGON_TRIP.from || hour >= WAGON_TRIP.to || weather.phase !== "clear") return;
+    if (ufoAbout() || !campers.every(camper => ["stand", "walk", "sit", "toChair", "toBench", "bench"].includes(camper.userData.state))) return;
+    t.day = day;
+    if (t.clearMornings++ % WAGON_TRIP.every !== WAGON_TRIP.turn) return;
+    weather.timer = Math.max(weather.timer, secondsUntil(WAGON_TRIP.home) + HIGH_CLOUD_LEAD);
+    camp.fishDay = canoeTrip.day = bikeTrip.day = day; // (nothing else on today)
+    sendCampersToWagon();
+    Object.assign(t, { mode: "boarding", route: DRIVE_OUT, next: "atPicnic" });
+    return;
+  }
+  if (t.mode === "boarding") {
+    if (!campers.every(camper => camper.userData.state === "atWagon")) return;
+    for (const camper of campers) {
+      camper.visible = false;
+      setCamperState(camper, "inWagon");
+    }
+    Object.assign(t, { mode: "driving", length: t.route.getLength(), along: 0, speed: 0 });
+    return;
+  }
+  if (t.mode === "driving") {
+    for (const camper of campers) camper.position.copy(wagon.position);
+    if (!placeWagon(dt)) return;
+    if (t.next === "atPicnic") {
+      campersOutOfWagon("toPicnic");
+      t.mode = "atPicnic";
+      t.picnicWatch = "table";
+      weather.timer += 40; // (the fine spell has to last the slower clock too)
+      picnicFood.visible = true;
+      for (const camper of campers) Object.assign(camper.userData, { eaten: 0, pondVisits: 0 });
+    } else {
+      wagon.position.set(WAGON.x, groundY, WAGON.z);
+      wagon.rotation.y = Math.PI / 2;
+      picnicFood.visible = false;
+      campersOutOfWagon(hour >= FIRE_HOUR - 0.3 ? "toChair" : "walk");
+      t.mode = "parked";
+    }
+    return;
+  }
+  if (t.mode === "atPicnic") {
+    if (hour >= WAGON_TRIP.leave) {
+      sendCampersToWagon();
+      Object.assign(t, { mode: "boarding", route: DRIVE_BACK, next: "parked", picnicWatch: null });
+      return;
+    }
+    updatePicnicWatch(dt);
+    for (const camper of campers) {
+      const c = camper.userData;
+      if (c.state !== "picnic" && c.state !== "atPond") continue;
+      if (c.state === "picnic" && c.eaten < 0.85) continue; // (finishing lunch first)
+      c.outingTimer -= dt;
+      if (c.outingTimer > 0) continue;
+      if (c.state === "atPond") c.pondVisits++;
+      setCamperState(camper, c.state === "picnic" ? "toPond" : "toPicnic");
+    }
+  }
+}
 function updateCamp(dt, now) {
   const bedtime = stargazeTonight ? STARGAZE_BEDTIME : CAMP_BEDTIME;
   const night = hour >= bedtime || hour < SUNRISE;
   updateCanoe(dt, now, night);
   updateBikes(dt, now);
+  updateWagonTrip(dt, now);
   // The fire's lit at dusk and burns on through the night
   camp.fire += ((hour >= FIRE_HOUR || hour < SUNRISE ? 1 : 0) - camp.fire) * easeFactor(dt, 0.8);
   // The lamp is only lit after dark, not when they're sheltering from rain by day
@@ -8133,7 +8385,7 @@ function updateCamp(dt, now) {
   tent.rotation.x = Math.sin(w * 11 + 1) * TENT_WOBBLE.pitch * shaking;
   const scared = bearNearCamp();
   for (const camper of campers) {
-    if (camper.userData.abducted || camper.userData.state === "riding") continue; // in the UFO's hands, or out on the bikes
+    if (camper.userData.abducted || camper.userData.state === "riding" || camper.userData.state === "inWagon") continue; // in the UFO's hands, out on the bikes or in the car
     updateCamper(camper, dt, now, night || weather.rain > CAMPER_SHELTER_RAIN || scared);
   }
   updateFishing(dt, now);
@@ -10253,6 +10505,8 @@ const watchers = {
     urgent: true, out: () => hareBeingChased(), anchor: () => fox.position, distance: 16, height: 6, fov: 34, maxSpeed: 8,
     focus: out => (hare.visible ? out.lerpVectors(fox.position, hare.position, 0.3) : out.copy(fox.position))
   },
+  drive: { urgent: true, tracking: true, out: () => wagonDriving(), anchor: () => wagon.position, distance: 16, height: 6, fov: 36, maxSpeed: 14, focus: out => out.copy(wagon.position).setY(groundY + 1) },
+  picnic: { urgent: true, watchSeconds: 12, out: () => wagonAtPicnic(), anchor: () => PICNIC_WATCH, distance: 0, height: 2.2, inSky: true, fov: 44, focus: out => out.copy(PICNIC_LOOK) },
   caveMouth: { urgent: true, out: () => bearComingOut(), anchor: () => CAVE_WATCH, distance: 0, height: 3.2, overTrees: true, fov: 40, focus: out => out.copy(CAVE_LOOK) },
   storm: { urgent: true, out: () => stormOverLake(), anchor: () => HOME_POSITION, distance: 0, height: HOME_POSITION.y - groundY, inSky: true, fov: CAMERA_FOV, focus: out => out.copy(STORM_LOOK) },
   rainbow: { urgent: true, out: () => rainbowOut(), anchor: () => HOME_POSITION, distance: 0, height: HOME_POSITION.y - groundY, inSky: true, fov: CAMERA_FOV, focus: out => out.copy(rainbowLook()) },
@@ -10753,6 +11007,52 @@ function wolvesMoonView() {
   wolfMoonEye(cycle.eye);
   cycle.target.copy(cycle.eye).addScaledVector(MOON_DIR, 100);
 }
+// From out over the pond, looking in under the shelter's roof with the wagon parked beyond
+// In front of the table, the side they sit facing, with the pond at the camera's back
+const PICNIC_WATCH = new THREE.Vector3(PICNIC.x - 5.5, groundY + 2.2, PICNIC.z);
+const PICNIC_LOOK = new THREE.Vector3(PICNIC.x + 0.4, groundY + 1, PICNIC.z);
+// Behind them, looking across the table to where they stand at the water's edge
+const PICNIC_POND_WATCH = new THREE.Vector3(PICNIC.x + 6.5, groundY + 3, PICNIC.z + 1.5);
+const PICNIC_POND_LOOK = new THREE.Vector3(POND.x + POND.rx - 1, groundY + 0.6, POND.z);
+function picnicView() {
+  cycle.eye.copy(PICNIC_POND_WATCH);
+  cycle.target.copy(PICNIC_POND_LOOK);
+}
+// Chasing the car; once it's pulled up, swinging round the shelter to the front of the table to see them come in and sit, then
+// round behind them when they go down to the water, and at the end pulling up and away to take in the whole spot
+const DRIVE_SHOTS = {
+  table: { eye: PICNIC_WATCH, look: PICNIC_LOOK, seconds: 4, lift: 3, wide: 0 },
+  pond: { eye: PICNIC_POND_WATCH, look: PICNIC_POND_LOOK, seconds: 4.5, lift: 2.5, wide: 6 },
+  out: { eye: new THREE.Vector3(PICNIC.x + 13, groundY + 16, PICNIC.z + 25), look: new THREE.Vector3(POND.x + 14, groundY, POND.z - 2), seconds: 5, lift: 0, wide: 0 }
+};
+function driveView() {
+  const chase = chaseView(() => wagon, 10, 3.5, 10);
+  const pan = { shot: null, time: 0, angle: 0, radius: 0, height: 0, target: new THREE.Vector3() };
+  return dt => {
+    const shot = DRIVE_SHOTS[wagonTrip.picnicWatch];
+    if (wagonDriving() || !shot) {
+      chase(dt);
+      pan.shot = null;
+      return;
+    }
+    if (shot !== pan.shot) {
+      pan.shot = shot;
+      pan.time = cycle.fresh ? shot.seconds : 0; // (only just turned to this view: straight there)
+      pan.angle = Math.atan2(cycle.position.x - PICNIC.x, cycle.position.z - PICNIC.z);
+      pan.radius = Math.hypot(cycle.position.x - PICNIC.x, cycle.position.z - PICNIC.z);
+      pan.height = cycle.position.y;
+      pan.target.copy(cycle.target);
+    }
+    pan.time += dt;
+    const along = Math.min(pan.time / shot.seconds, 1);
+    const u = along * along * (3 - 2 * along);
+    const swing = Math.sin(along * Math.PI);
+    const angle = pan.angle + turnTowards(pan.angle, Math.atan2(shot.eye.x - PICNIC.x, shot.eye.z - PICNIC.z)) * u;
+    const radius = pan.radius + (Math.hypot(shot.eye.x - PICNIC.x, shot.eye.z - PICNIC.z) - pan.radius) * u + swing * shot.wide;
+    cycle.eye.set(PICNIC.x + Math.sin(angle) * radius, pan.height + (shot.eye.y - pan.height) * u + swing * shot.lift, PICNIC.z + Math.cos(angle) * radius);
+    cycle.target.lerpVectors(pan.target, shot.look, u);
+  };
+}
 function caveMouthView() {
   cycle.eye.copy(CAVE_WATCH);
   cycle.target.copy(CAVE_LOOK);
@@ -10805,6 +11105,38 @@ const herdCentre = new THREE.Vector3();
 // `priority`: flown to straight away when its subject turns up; `find`: a subject quick enough to slip out
 // of sight on the way in, which the gaze picks up early in the flight and keeps on until it arrives;
 // `dash`: flown to quickly; `hold`: stays on it while this is true, however long that is
+// Five spots far enough back to take in most of what's going on, each from its own side of the lake. They fly and frame
+// like the Cycle view's, but only ever show when picked with the Vantage views button, and stay until the next press. One
+// stays with the station wagon, up on its far side and looking past it at the lake, or at the shelter once it's parked by
+// the picnic. The last goes round and round a great circle, starting and ending above the falls, looking in at the lake.
+// Round a circle at one height, always looking at the same spot, from the circle's far side each time it's picked
+function circlingView({ x, z, radius, height, seconds }, look) {
+  let angle = 0;
+  return dt => {
+    const { time, seconds: flying } = cycle.flight;
+    angle = cycle.fresh || time < flying ? 0 : angle + (dt * Math.PI * 2) / seconds; // (not setting off until it's got there)
+    cycle.eye.set(x + Math.sin(angle) * radius, groundY + height, z - Math.cos(angle) * radius);
+    cycle.target.set(look[0], groundY + look[1], look[2]);
+  };
+}
+function wagonVantage() {
+  const shelter = new THREE.Vector3(PICNIC.x, groundY, PICNIC.z);
+  return () => {
+    const beyond = wagon.position.x < 0 ? shelter : LAKE_CENTRE;
+    cycleAway.subVectors(wagon.position, beyond).setY(0).normalize();
+    cycle.eye.copy(wagon.position).addScaledVector(cycleAway, 14).y = wagon.position.y + 8;
+    cycle.target.lerpVectors(wagon.position, beyond, 0.5);
+  };
+}
+const VANTAGES = [
+  { name: "From the near shore", eye: [0, 18, 24], look: [0, 0, -40] },
+  { name: "Behind the station wagon", place: wagonVantage() },
+  { name: "From below the falls", eye: [8, 26, -84], look: [2, 0, -24] },
+  { name: "From beyond the pond", eye: [-88, 11, -13], look: [-48, 2, -28] },
+  { name: "Circling the lake", ride: true, place: circlingView({ x: -3, z: -32, radius: 64, height: 24, seconds: 50 }, [0, 0, -25]) }
+];
+const vantage = { index: -1 };
+const vantageOn = () => vantage.index >= 0;
 const CYCLE_VIEWS = [
   { name: "Eagle’s-eye", ride: true, present: () => true, place: eyeView(() => bird, EYE_OFFSET, { clear: 0.7 }) },
   { name: "Eaglet’s-eye", ride: true, present: () => true, place: eyeView(() => eaglets[0].userData.neck, new THREE.Vector3(0, 0.1, 0.13), { clear: 0.35 }) },
@@ -10830,6 +11162,8 @@ const CYCLE_VIEWS = [
   { name: "The canoe", priority: true, present: () => canoeOut(), place: chaseView(() => canoe, 7, 3, 6) },
   { name: "The lantern walk", priority: true, hold: () => Boolean(lanternCarrier()), present: () => Boolean(lanternCarrier()), place: behindView(() => lanternCarrier().position, 4, 2.2, { past: 6 }) },
   { name: "The hummingbird", present: () => hummingbird.visible, place: behindView(() => hummingbird.position, 1.2, 1.2, { past: 0 }) },
+  { name: "The drive", priority: true, dash: true, hold: () => wagonDriving() || picnicWatched(), present: () => wagonDriving() || picnicWatched(), place: driveView() },
+  { name: "The picnic by the pond", present: () => wagonAtPicnic(), place: picnicView },
   { name: "The bike ride", priority: true, dash: true, hold: () => bikesOut(), present: () => bikesOut(), place: bikeRideView, frame: () => bikeTrip.fleeing && bikeRideShot }, // (behind the one at the back, so both are in view)
   { name: "Behind the raccoon", present: () => raccoon.visible, place: behindView(() => raccoon.position, 3, 2, { past: 3 }) },
   { name: "Behind the deer", present: () => true, place: behindView(() => centreOf(herd, herdCentre), 8, 5), frame: () => herd.map(deer => deer.position) },
@@ -10859,7 +11193,14 @@ const CYCLE_VIEWS = [
   { name: "Behind the red-tailed hawk", present: () => hawk.visible, place: behindView(() => hawk.position, 9, 3) },
   { name: "The woodpecker", present: () => woodpecker.visible, place: woodpeckerView },
   { name: "At the foot of the falls", present: () => true, place: fallsFootView },
-  { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) }
+  { name: "Above the falls", present: () => true, place: behindView(() => FALLS_TOP, 7, 3.5, { lean: 0.12 }) },
+  ...VANTAGES.map(({ name, ride, place, eye, look }, i) => ({
+    name, label: `Vantage ${i + 1} of ${VANTAGES.length}: ${name}`, dash: true, freePitch: true, turnRate: 6, ride, hold: () => true, present: () => vantage.index === i,
+    place: place || (() => {
+      cycle.eye.set(eye[0], groundY + eye[1], eye[2]);
+      cycle.target.set(look[0], groundY + look[1], look[2]);
+    })
+  }))
 ];
 // Some things are too good to miss: whatever the camera's doing, when the UFO comes, or the campers set
 // off on their bikes, it flies over to that view (as Cycle view does) and stays for the whole of it, then
@@ -10868,7 +11209,8 @@ const CYCLE_VIEWS = [
 const TAKEOVERS = [
   { view: CYCLE_VIEWS.findIndex(view => view.name === "The falling satellite"), label: "Watching the satellite come down" },
   { view: CYCLE_VIEWS.findIndex(view => view.name === "The UFO"), label: "Watching the UFO" },
-  { view: CYCLE_VIEWS.findIndex(view => view.name === "The bike ride"), label: "Following the bike ride" }
+  { view: CYCLE_VIEWS.findIndex(view => view.name === "The bike ride"), label: "Following the bike ride" },
+  { view: CYCLE_VIEWS.findIndex(view => view.name === "The drive"), label: "Following the day out at the pond" }
 ];
 // `waved off`: the camera was taken elsewhere during it, so it's left there until next time
 for (const takeover of TAKEOVERS) takeover.wavedOff = false;
@@ -10898,7 +11240,7 @@ function updateTakeovers() {
         // Moved on with C: carry on in Cycle view
         current.wavedOff = true;
         takenOver = null;
-        cycleButton.setAttribute("aria-pressed", "true");
+        cycleButton.setAttribute("aria-pressed", String(!vantageOn()));
         setFollow(false);
         setEagleEye(false);
         setLookAround(false);
@@ -10938,12 +11280,18 @@ function showCycleView(index) {
   flight.facing.copy(shown.valid ? shown.facing : camera.quaternion);
   flight.fov = shown.valid ? shown.fov : camera.fov / zoom.current;
   flight.time = 0;
-  viewName.textContent = `Cycle view: ${CYCLE_VIEWS[index].name}`;
+  const takenFor = vantageOn() && TAKEOVERS.find(takeover => takeover.view === index);
+  viewName.textContent = takenFor ? takenFor.label : CYCLE_VIEWS[index].label || `Cycle view: ${CYCLE_VIEWS[index].name}`;
 }
 // On to the next view whose subject is about. After the last, a press goes back to the usual view,
 // while the timer (`wrap`) carries on round from the first. Leaving a priority view that broke in, it
 // carries on from the view it broke into rather than from its own place in the round.
 function nextCycleView(wrap = false) {
+  // (back to the vantage point after anything that broke in on it)
+  if (vantageOn()) {
+    cycle.resumeAfter = null;
+    return showCycleView(vantageViewIndex(vantage.index));
+  }
   if (cycle.resumeAfter !== null) {
     cycle.index = cycle.resumeAfter;
     cycle.resumeAfter = null;
@@ -11193,6 +11541,7 @@ function setCycle(on) {
   // Anything already out when the round starts just takes its turn
   for (const view of CYCLE_VIEWS) if (view.priority) view.absent = view.present() ? 0 : Infinity;
   cycleButton.setAttribute("aria-pressed", String(on));
+  if (!on && vantageOn()) setVantage(-1);
   viewName.hidden = !on;
   if (on) {
     setFollow(false);
@@ -11202,6 +11551,7 @@ function setCycle(on) {
 }
 // The first press starts at the first view; each one after moves on, and past the last it's back to the usual view
 function cycleView() {
+  if (vantageOn()) setCycle(false);
   if (!cycle.on) {
     cycle.index = -1;
     setCycle(true);
@@ -11209,6 +11559,26 @@ function cycleView() {
   nextCycleView();
 }
 cycleButton.addEventListener("click", cycleView);
+const vantageButton = document.getElementById("btn-vantage");
+const vantageViewIndex = i => CYCLE_VIEWS.findIndex(view => view.name === VANTAGES[i].name);
+function setVantage(index) {
+  vantage.index = index;
+  vantageButton.setAttribute("aria-pressed", String(index >= 0));
+  if (index < 0) return;
+  if (!cycle.on) {
+    cycle.index = -1;
+    setCycle(true);
+  }
+  cycle.resumeAfter = null;
+  cycleButton.setAttribute("aria-pressed", "false");
+  showCycleView(vantageViewIndex(index));
+}
+// Each press is on to the next spot, and past the last it's back to the usual view
+function nextVantage() {
+  if (vantage.index + 1 < VANTAGES.length) setVantage(vantage.index + 1);
+  else setCycle(false);
+}
+vantageButton.addEventListener("click", nextVantage);
 // Join the landscape tour at the point nearest the eagle, so it doesn't dash across the map
 function joinTour() {
   const probe = new THREE.Vector3();
@@ -11341,6 +11711,7 @@ addEventListener("keydown", e => {
   else if (key === "e") setEagleEye(!eagleEye);
   else if (key === "l") setLookAround(!lookAround.on);
   else if (key === "c") cycleView();
+  else if (key === "v") nextVantage();
   else if (key === "u") summonUfo(); // (a secret)
   else if (key === "s") summonSatellite(); // (another)
   else if (key === "h" && fox.visible && !foxState.chase && hare.userData.mixer) startHareChase(); // (and another, when the fox is out)
@@ -11369,7 +11740,7 @@ function frame() {
   elapsed += dt;
 
   const lastHour = hour;
-  const hoursPerSecond = ufoAbout() || satelliteWatched() || wolvesWatched() ? UFO_HOURS_PER_SECOND : hour < 5 || hour >= fastNightFrom() ? NIGHT_HOURS_PER_SECOND : DAY_HOURS_PER_SECOND;
+  const hoursPerSecond = ufoAbout() || satelliteWatched() || wolvesWatched() || picnicWatched() ? UFO_HOURS_PER_SECOND : hour < 5 || hour >= fastNightFrom() ? NIGHT_HOURS_PER_SECOND : DAY_HOURS_PER_SECOND;
   hour = (hour + dt * hoursPerSecond) % 24;
   // The moon moves on a phase each day (at noon, while it's down). The night ahead is settled at
   // noon too, so the bear and the campers can plan round it: the first night and about half of the
