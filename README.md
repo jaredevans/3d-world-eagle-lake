@@ -10,7 +10,7 @@ An animated 3D scene of an American bald eagle (*Haliaeetus leucocephalus*) over
 
 ## Running it
 
-Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, campers, black bear, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
+Open `bald-eagle-flight.html` in a modern browser, either straight from disk or through any web server (for example `http://localhost/bald-eagle-flight.html`). There is no build step. The page loads three.js from cdnjs, its glTF loader and skeleton utilities from jsDelivr, the scrap-built biplane, falling satellite, canoe, tent, trailer, station wagon, chairs, cooler, hammock, bench, campers, black bear, La Catrina, deer, wolves, fox, mountain hare, frogs, butterflies, dead oak, apple and cherry trees, cave mouth, hollow log, mushrooms, sunflowers, wildflowers, grass tufts, cattails, reed beds and ferns from [Polyfork](https://polyfork.dev) and its fonts from Google Fonts, so it needs an internet connection.
 
 ## Controls
 
@@ -173,7 +173,7 @@ On about one night in five (never in the first few, and never the same night as 
 - Long clear spells, now and then clouding over into light rain or a thunderstorm.
 - A few hours before the rain, thin high cloud spreads in: a milky veil with long fibrous wisps that takes the edge off the blue and the sun. A 22° halo forms round the sun in the ice crystals, and while the sun is fairly low, sundogs shine level with it on either side, red towards the sun with white tails. The clock line says "High cloud" or "Halo round the sun".
 - Rain falls in slanting streaks and makes rings on the lake. The grass and trees sway harder in the wind.
-- Lightning strikes whenever it rains and most often in a thunderstorm. Each strike is a forked bolt with a double flash across the sky, followed by thunder.
+- Lightning strikes whenever it rains and most often in a thunderstorm. Each strike is a forked bolt with a double flash across the sky, followed by thunder. In the dead of night, every flash shows La Catrina, huge and see-through, somewhere new on the lake each time, walking towards the camera, off the water if need be, and reaching out to it. She shines for a couple of seconds and fades away like a ghost.
 - A rainbow appears as the rain clears.
 
 ### Landscape

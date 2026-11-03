@@ -2204,6 +2204,7 @@ function strike() {
   bolt.geometry = new THREE.BufferGeometry();
   bolt.geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   lightning.age = 0;
+  catrinaAppears();
   const farness = (distance - LIGHTNING.minDistance) / (LIGHTNING.maxDistance - LIGHTNING.minDistance);
   thunder(1 + farness * 4, 1 - farness * 0.6);
 }
@@ -2213,6 +2214,7 @@ function flashEnvelope(age) {
   return Math.min(Math.exp(-age * 14) + flicker, 1);
 }
 function updateLightning(dt) {
+  updateCatrina(dt);
   lightning.age += dt;
   weather.flash = lightning.age < 1.5 ? flashEnvelope(lightning.age) : 0;
   bolt.visible = weather.flash > 0.02;
@@ -2225,6 +2227,83 @@ function updateLightning(dt) {
     const gapFactor = lerp(LIGHTNING.rainGapFactor, 1, weather.storm);
     lightning.timer = (LIGHTNING.minGap + Math.random() * (LIGHTNING.maxGap - LIGHTNING.minGap)) * gapFactor;
   }
+}
+
+// In the dead of night, every strike of lightning shows La Catrina from Polyfork (https://polyfork.dev/asset/la-catrina-b427ca),
+// huge and see-through, somewhere new on the lake each time, walking towards the camera and reaching out to it. She shines
+// for a couple of seconds and fades away like a ghost.
+const CATRINA_MODEL = "https://polyfork.dev/cdn/la-catrina-b427ca.glb";
+const CATRINA = { scale: 5, hold: 2.5, fade: 0.35, opacity: 0.5, glow: 0.9, reach: 0.8, nearest: 12, moveAtLeast: 8, tries: 16, inView: 0.8, speed: 4.5, closest: 7, stride: 5, swing: 0.3, bob: 0.12, sway: 0.05, from: 22, to: 4.5, shoulders: 1.34, spread: 0.2 };
+const catrina = new THREE.Group();
+catrina.visible = false;
+catrina.position.set(LAKE.x, LAKE.y, LAKE.z);
+catrina.scale.setScalar(CATRINA.scale);
+const catrinaSpot = new THREE.Vector3();
+const catrinaOnScreen = new THREE.Vector3();
+// Anywhere on the open water, but where the camera can see her if it can, not right on top of it, and not where she just was
+function placeCatrina() {
+  for (let i = 0; i < CATRINA.tries; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const out = Math.sqrt(Math.random()) * CATRINA.reach;
+    catrinaSpot.set(LAKE.x + Math.cos(angle) * LAKE.rx * out, LAKE.y, LAKE.z + Math.sin(angle) * LAKE.rz * out);
+    const clear = flatGap(catrinaSpot, camera.position) >= CATRINA.nearest && flatGap(catrinaSpot, catrina.position) >= CATRINA.moveAtLeast;
+    catrinaOnScreen.copy(catrinaSpot).project(camera);
+    if (clear && Math.abs(catrinaOnScreen.x) < CATRINA.inView && Math.abs(catrinaOnScreen.y) < CATRINA.inView && catrinaOnScreen.z < 1) break;
+  }
+  catrina.position.copy(catrinaSpot);
+}
+scene.add(catrina);
+const catrinaState = { time: Infinity, materials: [], arms: [], legs: [], hips: null, glow: { value: 0 } };
+loadPolyforkModel(CATRINA_MODEL, "La Catrina", model => {
+  model.getObjectByName("attach-righthand").visible = false; // (her fan)
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.frustumCulled = false; // (its skin moves off where it was first measured)
+    Object.assign(o.material, { transparent: true, fog: false });
+    o.material.onBeforeCompile = shader => {
+      shader.uniforms.ghostGlow = catrinaState.glow;
+      shader.fragmentShader = `uniform float ghostGlow;\n${shader.fragmentShader}`.replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+        totalEmissiveRadiance += mix(diffuseColor.rgb, vec3(0.75, 0.85, 1.0), 0.25) * ghostGlow;`);
+    };
+    catrinaState.materials.push(o.material);
+  });
+  catrinaState.arms = [["LeftArm", 1], ["RightArm", -1]].map(([name, side]) => ({ bone: model.getObjectByName(name), side }));
+  catrinaState.legs = [["LeftUpLeg", 0], ["RightUpLeg", Math.PI]].map(([name, phase]) => ({ bone: model.getObjectByName(name), phase }));
+  catrina.add(model);
+});
+const catrinaStep = new THREE.Vector3();
+const catrinaAhead = new THREE.Vector3();
+const catrinaArmRest = new THREE.Vector3();
+const catrinaArmReach = new THREE.Vector3();
+function catrinaAppears() {
+  const deadOfNight = hour >= CATRINA.from || hour < CATRINA.to;
+  // (a strike while she's still about leaves her to finish)
+  if (!deadOfNight || !catrinaState.materials.length || catrina.visible) return;
+  placeCatrina();
+  catrinaState.time = 0;
+}
+function updateCatrina(dt) {
+  const c = catrinaState;
+  c.time += dt;
+  catrina.visible = c.time < CATRINA.hold + CATRINA.fade;
+  if (!catrina.visible) return;
+  catrina.rotation.y = bearing(catrina.position, camera.position);
+  // Coming on, over water or land alike, until she's looming over the camera with her arms still in view
+  catrinaStep.copy(catrina.position).addScaledVector(yawVector(catrina.rotation.y, catrinaAhead), CATRINA.speed * dt);
+  if (flatGap(catrinaStep, camera.position) > CATRINA.closest) catrina.position.copy(catrinaStep);
+  // With a slow stride under the dress and a sway from side to side
+  const stride = c.time * CATRINA.stride;
+  for (const { bone, phase } of c.legs) bone.rotation.x = Math.sin(stride + phase) * CATRINA.swing;
+  catrina.position.y = (insideLake(catrina.position.x, catrina.position.z, 0) ? LAKE.y : groundY) + Math.abs(Math.sin(stride)) * CATRINA.bob;
+  catrina.rotation.z = Math.cos(stride) * CATRINA.sway;
+  // Built with her arms straight out to the sides, so they're turned to reach for the camera, up or down to wherever it is
+  const up = (camera.position.y - catrina.position.y - CATRINA.shoulders * CATRINA.scale) / flatGap(catrina.position, camera.position);
+  for (const { bone, side } of c.arms) {
+    bone.quaternion.setFromUnitVectors(catrinaArmRest.set(side, 0, 0), catrinaArmReach.set(side * CATRINA.spread, up, 1).normalize());
+  }
+  const left = smoothstep(CATRINA.hold + CATRINA.fade - c.time, 0, CATRINA.fade);
+  c.glow.value = CATRINA.glow * left;
+  for (const material of c.materials) material.opacity = CATRINA.opacity * left;
 }
 
 // Weather: long clear spells, now and then clouding over into light rain or a thunderstorm,
